@@ -10,8 +10,8 @@ import (
 	"runtime"
 
 	"github.com/RackSec/srslog"
-	"github.com/Sirupsen/logrus"
 	"github.com/grrtrr/clccam/logger/hooks"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -19,7 +19,7 @@ import (
 var (
 	log = &logrus.Logger{
 		Out:       os.Stderr,
-		Formatter: &logrus.TextFormatter{},
+		Formatter: &Formatter{EnableColours: true},
 		Hooks:     make(logrus.LevelHooks),
 		Level:     logrus.DebugLevel,
 	}

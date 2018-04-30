@@ -1,75 +1,74 @@
 package clccam
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/http/httputil"
 	"reflect"
+	"regexp"
+	"strings"
 	"time"
 
-	"github.com/go-resty/resty"
 	"github.com/grrtrr/clccam/logger"
 	"github.com/pkg/errors"
 )
 
-const (
-	// Upper bound on client operations - default timeout value
-	ClientTimeout = 180 * time.Second
-
-	// CAM main API url
-	BaseURL = "https://cam.ctl.io"
-
-	// Maximum number of retries per request.
-	MaxRetries = 3
-
-	// Per-request retry delay for the retryer.
-	StepDelay = time.Second * 10
-)
-
-// GLOBALS
-var (
-	// Enable per-request debugging
-	RequestDebug bool
-)
-
-// Client wraps resty.Client, since some of the CAM defaults are not exactly REST
+// Client is a reusable REST client for CAM API calls.
 type Client struct {
-	client *resty.Client
+	// client performs the actual requests
+	client *http.Client
 
-	// Cancellation context for this client and its requests
+	// Base URL to use
+	baseURL string
+
+	// Per-request options
+	requestOptions []RequestOption
+
+	// Cancellation context (used by @cancel). Can be overridden via WithContext()
 	ctx context.Context
+
+	// enable verbose per-request debugging
+	requestDebug bool
 }
 
-// NewClient returns a new client initialied from @t
-func (t Token) NewClient() *Client {
-	var c = resty.New().
-		SetRESTMode().
-		SetDebug(RequestDebug && false).
-		SetAuthToken(string(t)).
-		SetHostURL("https://cam.ctl.io").
-		SetHeaders(map[string]string{
-			"Content-Type": "application/json",
-			"Accept":       "application/json",
-		}).
-		SetTimeout(ClientTimeout).
-		AddRetryCondition(resty.RetryConditionFunc(func(res *resty.Response) (bool, error) {
-			switch res.RawResponse.StatusCode {
-			// Request timeout, server error, bad gateway, service unavailable, gateway timeout
-			case 408, 500, 502, 503, 504:
-				logger.Warnf("%s %s returned %q - retrying",
-					res.Request.Method, res.RawResponse.Request.URL.Path, res.RawResponse.Status)
-				return true, nil
-			}
-			return false, nil
-		})).
-		SetRetryCount(MaxRetries)
-		//			SetRetryWaitTime(time),
+// NewClient returns a new standalone client.
+func NewClient(options ...ClientOption) *Client {
+	var c = &Client{client: &http.Client{}}
 
-	// Try to work around the use of log.Logger
-	c.Log.SetPrefix("CAM")
-	c.Log.SetFlags(0)
-	c.Log.SetOutput(logger.Writer())
-	return &Client{client: c, ctx: context.Background()}
+	for _, setOption := range options {
+		setOption(c)
+	}
+	return c
+}
+
+// NewClient turns @t into a CAM client with usable defaults
+func (t Token) NewClient(options ...ClientOption) *Client {
+	var c = NewClient(HostURL("https://cam.ctl.io"),
+		RequestOptions(Headers(map[string]string{
+			"Authorization": "Bearer " + string(t),
+			"Content-Type":  "application/json; charset=utf-8",
+			"Accept":        "application/json",
+		})),
+		Retryer(3, 10*time.Second, 180*time.Second),
+		Debug(true),
+	)
+
+	// Apply the provided options last, to override any defaults
+	for _, setOption := range options {
+		setOption(c)
+	}
+	return c
+}
+
+// WithDebug enables debugging on @c.
+func (c *Client) WithDebug(enabled bool) *Client {
+	c.requestDebug = enabled
+	return c
 }
 
 // WithContext sets the context to @ctx
@@ -84,101 +83,106 @@ func (c *Client) Get(path string, resModel interface{}) error {
 }
 
 // getResponse performs a generic request
-// @url:      request path relative to %BaseURL
+// @urlPath:  request path relative to %BaseURL
 // @verb:     request verb
 // @reqModel: request model to serialize, or nil.
 // @resModel: result model to deserialize, must be a pointer to the expected result, or nil.
 // Evaluates the StatusCode of the BaseResponse (embedded) in @inModel and sets @err accordingly.
 // If @err == nil, fills in @resModel, else returns error.
-func (c *Client) getResponse(url, verb string, reqModel, resModel interface{}) error {
+func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{}) error {
 	var (
-		req = c.client.R()
-		res *resty.Response
-		err error
+		url     = fmt.Sprintf("%s/%s", c.baseURL, strings.TrimLeft(urlPath, "/"))
+		reqBody io.Reader
 	)
 
 	if reqModel != nil {
-		req = req.SetBody(reqModel)
+		jsonReq, err := json.Marshal(reqModel)
+		if err != nil {
+			return errors.Errorf("failed to encode request model %T %+v: %s", reqModel, reqModel, err)
+		}
+		reqBody = bytes.NewBuffer(jsonReq)
 	}
 
-	/* resModel must be a pointer type (call-by-value) */
+	// resModel must be a pointer type (call-by-value)
 	if resModel != nil {
 		if resType := reflect.TypeOf(resModel); resType.Kind() != reflect.Ptr {
 			return errors.Errorf("expecting pointer to result model %T", resModel)
 		}
 	}
 
-	if c.ctx != nil {
-		req = req.SetContext(c.ctx)
-	}
-
-	if RequestDebug {
-		logger.Debugf("%s %s", verb, url)
-	}
-
-	switch verb {
-	case "GET":
-		res, err = req.Get(url)
-	default:
-		// func (*Request) SetContentLength
-		/* XXX
-		req, err := http.NewRequest(verb, url, reqBody)
-		if err != nil {
-			return err
-
-		}
-		*/
-	}
-
-	if RequestDebug {
-		logger.Debugf("%s: %s", res.Status(), res.Body())
-	}
-
+	req, err := http.NewRequest(verb, url, reqBody)
 	if err != nil {
 		return err
 	}
 
-	switch res.StatusCode() {
-	case 200, 201, 202, 204: /* OK / CREATED / ACCEPTED / NO CONTENT */
+	if c.ctx != nil {
+		req = req.WithContext(c.ctx)
+	}
+
+	for _, setOption := range c.requestOptions {
+		setOption(req)
+	}
+
+	if c.requestDebug {
+		reqDump, _ := httputil.DumpRequest(req, true)
+		logger.Debugf("%s", reqDump)
+	}
+
+	res, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if c.requestDebug {
+		resDump, _ := httputil.DumpResponse(res, true)
+		logger.Debugf("%s", resDump)
+	}
+
+	switch res.StatusCode {
+	case 200, 201, 202, 204: // OK | CREATED | ACCEPTED | NO CONTENT
 		if resModel != nil {
-			if res.Size() == 0 {
-				return errors.Errorf("Unable do populate %T result model, due to empty %q response",
+			if res.ContentLength == 0 {
+				return errors.Errorf("unable do populate %T result model, due to empty %q response",
 					resModel, res.Status)
 			}
-			return json.Unmarshal(res.Body(), resModel)
-		} else if res.Size() > 0 {
-			return errors.Errorf("Unable to decode non-empty %q response (%d bytes) to nil response model",
-				res.Status(), res.Size())
+			return json.NewDecoder(res.Body).Decode(resModel)
+		} else if res.ContentLength > 0 {
+			return errors.Errorf("unable to decode non-empty %q response (%d bytes) to nil response model",
+				res.Status, res.ContentLength)
 		}
 		return nil
 	}
 
-	// Remaining error cases: res.ContentLength is not reliable - in the SBS case, it uses
-	// Transfer-Encoding "chunked", without a Content-Length.
-	if res.Size() > 0 {
+	// Remaining cases
+	if body, err := ioutil.ReadAll(res.Body); err != nil && res.ContentLength > 0 {
+		return errors.Errorf("failed to read error response %d body: %s", res.StatusCode, err)
+	} else if len(body) > 0 && !strings.Contains(http.DetectContentType(body), "html") {
+		// Decode possible CAM error response:
+		// 1) text/html:  HTML page - skip as per above check
+		// 2) text/plain: use body after stripping whitespace
+		// 3) bare JSON string
+		// 4) struct { message: "string" }
 		var payload map[string]interface{}
-		var errMsg = string(res.Body())
+		var errMsg = string(bytes.TrimSpace(body))
 
-		//
-		// Decode error response:
-		// 1) bare JSON string
-		// 2) struct { message: "string" }
-		//
-		if err := json.Unmarshal(res.Body(), &payload); err != nil {
-			/* Failed to decode as struct, try string (1) next. */
-			if err = json.Unmarshal(res.Body(), &errMsg); err != nil {
-				errMsg = string(res.Body())
+		if err := json.Unmarshal(body, &payload); err != nil {
+			// Failed to decode as struct, try string (2,3)
+			if err = json.Unmarshal(body, &errMsg); err != nil {
+				var nl = regexp.MustCompile(`(\r?\n)+`)
+
+				errMsg = nl.ReplaceAllString(string(bytes.TrimSpace(body)), "; ")
 			}
 		} else if errors, ok := payload["message"]; ok {
 			if msg, ok := errors.(string); ok {
-				errMsg = msg
+				errMsg = strings.TrimRight(msg, " .") // sometimes they end error messages in '.'
 			}
 		} else if error, ok := payload["error"]; ok {
 			if msg, ok := error.(string); ok {
 				errMsg = fmt.Sprintf("Error - %s", msg)
 			}
 		}
-		return errors.Errorf("%s (status: %d)", errMsg, res.StatusCode())
+		return errors.Errorf("%s (status: %d)", errMsg, res.StatusCode)
 	}
-	return errors.New(res.Status())
+	return errors.New(res.Status)
 }

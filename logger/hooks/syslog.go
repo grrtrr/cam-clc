@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/RackSec/srslog"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // SyslogHook to send logs via syslog.
