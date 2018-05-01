@@ -141,6 +141,14 @@ func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{
 
 	switch res.StatusCode {
 	case 200, 201, 202, 204: // OK | CREATED | ACCEPTED | NO CONTENT
+		if false { // XXX DEBUG
+			if body, err := ioutil.ReadAll(res.Body); err != nil && res.ContentLength > 0 {
+				return errors.Errorf("failed to read error response %d body: %s", res.StatusCode, err)
+			} else if len(body) > 0 && !strings.Contains(http.DetectContentType(body), "html") {
+				logger.Debugf("%s", string(body))
+			}
+		}
+
 		if resModel != nil {
 			if res.ContentLength == 0 {
 				return errors.Errorf("unable do populate %T result model, due to empty %q response",
