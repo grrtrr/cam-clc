@@ -83,21 +83,6 @@ type WorkSpace struct {
 	Type               string `json:"type"`
 }
 
-/*
-organizationsarray List of organizations of the workspace.
-membersarrayLists members of a team workspace.
-ldap_groupsarrayList of fully qualified names of LDAP groups that are members of a workspace. Present in Team Workspaces
-
-
-
-
-
-
-ownerstringRefers to the username that owns the workspace. Present in Team Workspaces
-
-
-*/
-
 // GetWorkSpace returns the workspace of @userId, if any.
 func (c *Client) GetWorkSpace(userId string) (*WorkSpace, error) {
 	var res = new(WorkSpace)
