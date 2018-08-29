@@ -2,6 +2,7 @@ package clccam
 
 import (
 	"bytes"
+	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -17,7 +18,7 @@ type Timestamp struct {
 
 // Implements json.Marshaler
 func (t *Timestamp) MarshalJSON() (text []byte, err error) {
-	return []byte(t.Time.Format(ts_format)), nil
+	return []byte(strconv.Quote(t.Time.Format(ts_format))), nil
 }
 
 // Implements json.Unmarshaler
