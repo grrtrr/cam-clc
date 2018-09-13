@@ -65,10 +65,17 @@ func Context(ctx context.Context) ClientOption {
 	}
 }
 
-// Debug enables per-request logging
+// Debug enables printing request/response to stderr.
 func Debug(enabled bool) ClientOption {
 	return func(r *Client) {
 		r.requestDebug = enabled
+	}
+}
+
+// JsonResponse enables printing JSON responses to stdout.
+func JsonResponse(enabled bool) ClientOption {
+	return func(r *Client) {
+		r.jsonResponse = enabled
 	}
 }
 

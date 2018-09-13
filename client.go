@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/grrtrr/clccam/logger"
 	"github.com/pkg/errors"
@@ -20,20 +19,23 @@ import (
 
 // Client is a reusable REST client for CAM API calls.
 type Client struct {
-	// client performs the actual requests
+	// client performs the actual requests.
 	client *http.Client
 
-	// Base URL to use
+	// Base URL to use.
 	baseURL string
 
-	// Per-request options
+	// Per-request options.
 	requestOptions []RequestOption
 
 	// Cancellation context (used by @cancel). Can be overridden via WithContext()
 	ctx context.Context
 
-	// enable verbose per-request debugging
+	// Print request / response to stderr.
 	requestDebug bool
+
+	// Print JSON response to stdout.
+	jsonResponse bool
 }
 
 // NewClient returns a new standalone client.
@@ -46,7 +48,7 @@ func NewClient(options ...ClientOption) *Client {
 	return c
 }
 
-// NewClient turns @t into a CAM client with usable defaults
+// NewClient turns @t into a CAM client.
 func (t Token) NewClient(options ...ClientOption) *Client {
 	var c = NewClient(HostURL("https://cam.ctl.io"),
 		RequestOptions(Headers(map[string]string{
@@ -54,8 +56,6 @@ func (t Token) NewClient(options ...ClientOption) *Client {
 			"Content-Type":  "application/json; charset=utf-8",
 			"Accept":        "application/json",
 		})),
-		Retryer(3, 10*time.Second, 180*time.Second),
-		Debug(true),
 	)
 
 	// Apply the provided options last, to override any defaults
@@ -71,9 +71,15 @@ func (c *Client) WithDebug(enabled bool) *Client {
 	return c
 }
 
-// WithContext sets the context to @ctx
+// WithContext sets the context to @ctx.
 func (c *Client) WithContext(ctx context.Context) *Client {
 	c.ctx = ctx
+	return c
+}
+
+// WithJsonResponse enables printing the JSON response to stdout.
+func (c *Client) WithJsonResponse(enabled bool) *Client {
+	c.jsonResponse = enabled
 	return c
 }
 
@@ -98,7 +104,7 @@ func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{
 	if reqModel != nil {
 		jsonReq, err := json.Marshal(reqModel)
 		if err != nil {
-			return errors.Errorf("failed to encode request model %T %+v: %s", reqModel, reqModel, err)
+			return errors.Wrapf(err, "failed to encode request model %T %+v", reqModel, reqModel)
 		}
 		reqBody = bytes.NewBuffer(jsonReq)
 	}
@@ -132,21 +138,33 @@ func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
 
 	if c.requestDebug {
 		resDump, _ := httputil.DumpResponse(res, true)
 		logger.Debugf("%s", resDump)
 	}
 
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil && res.ContentLength > 0 {
+		res.Body.Close()
+		return errors.Wrapf(err, "failed to read error response %d body", res.StatusCode)
+	} else if err := res.Body.Close(); err != nil {
+		return errors.Wrapf(err, "failed to close after reading response body")
+	}
+
 	switch res.StatusCode {
 	case 200, 201, 202, 204: // OK | CREATED | ACCEPTED | NO CONTENT
-		if false { // XXX DEBUG
-			if body, err := ioutil.ReadAll(res.Body); err != nil && res.ContentLength > 0 {
-				return errors.Errorf("failed to read error response %d body: %s", res.StatusCode, err)
-			} else if len(body) > 0 && !strings.Contains(http.DetectContentType(body), "html") {
-				logger.Debugf("%s", string(body))
+		if c.requestDebug && len(body) > 0 && !strings.Contains(http.DetectContentType(body), "html") {
+			logger.Debugf("%s", string(body))
+		}
+
+		if c.jsonResponse {
+			var b bytes.Buffer
+
+			if err := json.Indent(&b, body, "", "\t"); err != nil {
+				return errors.Wrapf(err, "failed to decode JSON response %q", string(body))
 			}
+			fmt.Println(b.String())
 		}
 
 		if resModel != nil {
@@ -154,43 +172,41 @@ func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{
 				return errors.Errorf("unable do populate %T result model, due to empty %q response",
 					resModel, res.Status)
 			}
-			return json.NewDecoder(res.Body).Decode(resModel)
+			return json.Unmarshal(body, resModel)
 		} else if res.ContentLength > 0 {
 			return errors.Errorf("unable to decode non-empty %q response (%d bytes) to nil response model",
 				res.Status, res.ContentLength)
 		}
 		return nil
-	}
+	default: // Errors and temporary failures
+		if len(body) > 0 && !strings.Contains(http.DetectContentType(body), "html") {
+			// Decode possible CAM error response:
+			// 1) text/html:  HTML page - skip as per above check
+			// 2) text/plain: use body after stripping whitespace
+			// 3) bare JSON string
+			// 4) struct { message: "string" }
+			var payload map[string]interface{}
+			var errMsg = string(bytes.TrimSpace(body))
 
-	// Remaining cases
-	if body, err := ioutil.ReadAll(res.Body); err != nil && res.ContentLength > 0 {
-		return errors.Errorf("failed to read error response %d body: %s", res.StatusCode, err)
-	} else if len(body) > 0 && !strings.Contains(http.DetectContentType(body), "html") {
-		// Decode possible CAM error response:
-		// 1) text/html:  HTML page - skip as per above check
-		// 2) text/plain: use body after stripping whitespace
-		// 3) bare JSON string
-		// 4) struct { message: "string" }
-		var payload map[string]interface{}
-		var errMsg = string(bytes.TrimSpace(body))
+			if err := json.Unmarshal(body, &payload); err != nil {
+				// Failed to decode as struct, try string (2,3)
+				if err = json.Unmarshal(body, &errMsg); err != nil {
+					var nl = regexp.MustCompile(`(\r?\n)+`)
 
-		if err := json.Unmarshal(body, &payload); err != nil {
-			// Failed to decode as struct, try string (2,3)
-			if err = json.Unmarshal(body, &errMsg); err != nil {
-				var nl = regexp.MustCompile(`(\r?\n)+`)
-
-				errMsg = nl.ReplaceAllString(string(bytes.TrimSpace(body)), "; ")
+					errMsg = nl.ReplaceAllString(string(bytes.TrimSpace(body)), "; ")
+				}
+			} else if errors, ok := payload["message"]; ok {
+				if msg, ok := errors.(string); ok {
+					errMsg = strings.TrimRight(msg, " .") // sometimes they end error messages in '.'
+				}
+			} else if error, ok := payload["error"]; ok {
+				if msg, ok := error.(string); ok {
+					errMsg = fmt.Sprintf("Error - %s", msg)
+				}
 			}
-		} else if errors, ok := payload["message"]; ok {
-			if msg, ok := errors.(string); ok {
-				errMsg = strings.TrimRight(msg, " .") // sometimes they end error messages in '.'
-			}
-		} else if error, ok := payload["error"]; ok {
-			if msg, ok := error.(string); ok {
-				errMsg = fmt.Sprintf("Error - %s", msg)
-			}
+			return errors.Errorf("%s (status: %d)", errMsg, res.StatusCode)
 		}
-		return errors.Errorf("%s (status: %d)", errMsg, res.StatusCode)
+		// FIXME: implement temporary / retryable errors (300)
+		return errors.New(res.Status)
 	}
-	return errors.New(res.Status)
 }

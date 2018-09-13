@@ -153,6 +153,11 @@ func (c *Client) GetInstance(instanceId string) (res Instance, err error) {
 	return res, c.Get("/services/instances/"+instanceId, &res)
 }
 
+// GetInstances returns a list of all instances owned by the token user.
+func (c *Client) GetInstances() (res []Instance, err error) {
+	return res, c.Get("/services/instances", &res)
+}
+
 // Service represents the service associated with an instance.
 type InstanceService struct {
 	ClcAlias string     `json:"clc_alias"` // e.g. "AVCR"

@@ -1,6 +1,8 @@
 package clccam
 
 import (
+	"fmt"
+
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -22,6 +24,16 @@ type Event struct {
 	UploadDate Timestamp `json:"upload_date"`
 }
 
+// BasicBoxVariable is used e.g. inside a ServiceBox
+type BasicBoxVariable struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+func (b BasicBoxVariable) String() string {
+	return fmt.Sprintf(`%s="%s"`, b.Name, b.Value)
+}
+
 // BoxVariable specifies a single variable associated with a Box
 type BoxVariable struct {
 	BasicBoxVariable
@@ -33,39 +45,34 @@ type BoxVariable struct {
 	AutomaticUpdates string     `json:"automatic_updates"`
 }
 
-// BasicBoxVariable is used e.g. inside a ServiceBox
-type BasicBoxVariable struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
-func (b BasicBoxVariable) String() string { return b.Name + `="` + b.Value + `"` }
-
 // Profile contains profile data associated with a Box.
 type Profile struct {
-	Cloud          string             `json:"cloud"`
-	Flavor         string             `json:"flavor"`
-	Image          string             `json:"image"`
-	Instances      int64              `json:"instances"`
-	Keypair        string             `json:"keypair"`
-	Location       string             `json:"location"`
-	ManagedOs      bool               `json:"managed_os"`
+	Cloud          string             `json:"cloud"`           // e.g. "vpc-26ebd840"
+	ElasticIP      bool               `json:"elastic_ip"`      // e.g. false
+	Flavor         string             `json:"flavor"`          // e.g. "c1.medium"
+	Image          string             `json:"image"`           // e.g. "Linux Compute"
+	Instances      int64              `json:"instances"`       // e.g. 1
+	Keypair        string             `json:"keypair"`         // e.g. "None"
+	Location       string             `json:"location"`        // e.g. "us-west-2"
+	ManagedOs      bool               `json:"managed_os"`      // e.g. false
+	PlacementGroup string             `json:"placement_group"` // e.g. ""
 	PricingInfo    PricingInformation `json:"pricing_info"`
-	Schema         URI                `json:"schema"`
-	SecurityGroups []string           `json:"security_groups"`
-	Subnet         string             `json:"subnet"`
-	Volumes        []Volume           `json:"volumes"`
+	Role           string             `json:"role"`            // e.g. "None"
+	Schema         URI                `json:"schema"`          // e.g. "http://elasticbox.net/schemas/aws/ec2/profile"
+	SecurityGroups []string           `json:"security_groups"` // e.g. [ "Automatic" ]
+	Subnet         string             `json:"subnet"`          // e.g. "subnet-32df1d7a"
+	Volumes        []Volume           `json:"volumes"`         // e.g. []
 }
 
 // PricingInformation aggregates the pricing information associated with a Profile
 type PricingInformation struct {
-	EstimatedMonthly int64  `json:"estimated_monthly"`
-	Factor           int64  `json:"factor"`
-	HourlyPrice      int64  `json:"hourly_price"`
-	ProviderType     string `json:"provider_type"`
+	EstimatedMonthly int64  `json:"estimated_monthly"` // e.g. 9360000
+	Factor           int64  `json:"factor"`            // e.g. 100000
+	HourlyPrice      int64  `json:"hourly_price"`      // e.g. 13000
+	ProviderType     string `json:"provider_type"`     // e.g. "Amazon Web Services"
 }
 
-// Volume represents a single disk volme
+// Volume represents a single disk volume.
 type Volume struct {
 	DeleteOnTermination bool   `json:"delete_on_termination"`
 	Device              string `json:"device"`
@@ -109,24 +116,25 @@ type Box struct {
 	ID uuid.UUID `json:"id"`
 
 	// Human readable version of @ID
-	FriendlyID string `json:"friendly_id"`
+	FriendlyID string `json:"friendly_id"` // e.g. "jenkins"
 
 	// Box name
-	Name string `json:"name"`
+	Name string `json:"name"` // e.g. "Jenkins"
 
 	// Indicates at what level the box is visible.
 	Visibility Visibility `json:"visibility"`
 
-	AutomaticUpdates string      `json:"automatic_updates"`
-	Categories       []string    `json:"categories"`
+	// Presumably "on" or "off":
+	AutomaticUpdates string      `json:"automatic_updates"` // e.g. "off"
+	Categories       []string    `json:"categories"`        // e.g.  [ "Continuous Integration" ]
 	Claims           []string    `json:"claims"`
 	Deleted          interface{} `json:"deleted"`
 
 	// Box description.
-	Description string `json:"description"`
+	Description string `json:"description"` // e.g. "With ElasticBox CI plugin"
 
 	// Box requirements.
-	Requirements []string `json:"requirements"`
+	Requirements []string `json:"requirements"` // e.g. [ "linux" ]
 
 	// List of box variables, each variable object contains
 	// the parameters: type, name and value (plus a few more).
@@ -138,28 +146,55 @@ type Box struct {
 	// Date of the last update.
 	Updated Timestamp `json:"updated"`
 
+	Lifespan struct {
+		Operation string `json:"operation"` // e.g. "none"
+	} `json:"lifespan"`
+
 	// Box URI
-	URI URI `json:"uri"`
+	URI URI `json:"uri"` // e.g. "/services/boxes/e0715702-cf5c-4c88-bfa1-2e5e3808e597"
 
 	// Box schema uri.
-	Schema URI `json:"schema"`
+	Schema URI `json:"schema"` // e.g. "http://elasticbox.net/schemas/boxes/script"
 
 	// List of Box members.
 	Members []struct {
-		Role      string `json:"role"`
-		Workspace string `json:"workspace"`
+		Role      string `json:"role"`      // e.g. "collaborator"
+		Workspace string `json:"workspace"` // e.g. "cf"
 	} `json:"members"`
 
 	// Organization to which the box belongs.
-	Organization string `json:"organization"`
+	Organization string `json:"organization"` // e.g. "elasticbox"
 
 	// Box owner.
-	Owner string `json:"owner"`
+	Owner string `json:"owner"` // e.g. "elasticbox"
 
-	DraftFrom string `json:"draft_from"`
+	// References the ID of another box
+	DraftFrom uuid.UUID `json:"draft_from"`
 
 	// Map of box events
 	Events map[BoxEvent]Event
+
+	// Profile contains cloud-specific details.
+	Profile Profile `json:"profile"`
+
+	ProviderID uuid.UUID `json:"provider_id"`
+
+	Services []Service `json:"services"`
+
+	Template struct {
+		ContentType string `json:"content_type"` // e.g. "text/x-shellscript"
+		Length      int64  `json:"length"`       // e.g. 4395
+		UploadDate  string `json:"upload_date"`  // e.g. "2017-05-23 17:05:43.923946"
+		URL         URI    `json:"url"`          // e.g. "/services/blobs/download/59246be776d194287289646c/template.json"
+	} `json:"template"`
+
+	// Type seems to be often empty
+	Type string `json:"type"` // e.g. "CloudFormation Service"
+
+	/*
+	 * Html Section
+	 */
+	Readme Readme `json:"readme"`
 
 	// Box icon URI
 	Icon string `json:"icon"`
@@ -170,23 +205,7 @@ type Box struct {
 		Image  URI    `json:"image"`
 	} `json:"icon_metadata"`
 
-	Profile Profile `json:"profile"`
-
-	ProviderID string `json:"provider_id"`
-
-	Readme Readme `json:"readme"`
-
-	Services []Service `json:"services"`
-
-	Template struct {
-		ContentType string `json:"content_type"`
-		Length      int64  `json:"length"`
-		UploadDate  string `json:"upload_date"`
-		URL         string `json:"url"`
-	} `json:"template"`
-
-	Type string `json:"type"`
-
+	// More html ...
 	ActionButton struct {
 		Icon  URI    `json:"icon"`
 		Label string `json:"label"`
@@ -194,9 +213,12 @@ type Box struct {
 	} `json:"action_button"`
 }
 
-// GetBoxes lists all boxes that are accessible in the personal workspace of the authenticated user.
-func (c *Client) GetBoxes() ([]Box, error) {
-	var res []Box
+// GetBox returns the details of box @boxId.
+func (c *Client) GetBox(boxId string) (res Box, err error) {
+	return res, c.Get("/services/boxes/"+boxId, &res)
+}
 
+// GetBoxes lists all boxes that are accessible in the personal workspace of the authenticated user.
+func (c *Client) GetBoxes() (res []Box, err error) {
 	return res, c.Get("/services/boxes", &res)
 }
