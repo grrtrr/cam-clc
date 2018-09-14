@@ -13,138 +13,115 @@ import (
 
 // Instance represents a single instance of a service.
 type Instance struct {
-	AutomaticReconfiguration bool          `json:"automatic_reconfiguration"` // e.g. true
-	AutomaticUpdates         string        `json:"automatic_updates"`         // e.g. "off"
-	Bindings                 []interface{} `json:"bindings"`                  // e.g. []
-	Box                      uuid.UUID     `json:"box"`                       // e.g. "37cb9262-d04f-4bf0-97d7-4429d2bad6c3"
-	Boxes                    []struct {
-		AutomaticUpdates string     `json:"automatic_updates"` // e.g. "off"
-		Created          Timestamp  `json:"created"`           // e.g. "2018-05-23 22:20:07.916219"
-		Deleted          *Timestamp `json:"deleted"`           // e.g. null
-		DraftFrom        uuid.UUID  `json:"draft_from"`        // e.g. "e211992f-04a7-4d8d-ae23-1b38bd22be65"
-		Events           struct {
-			Install struct {
-				ContentType     string `json:"content_type"`     // e.g. "text/x-shellscript"
-				DestinationPath string `json:"destination_path"` // e.g. "scripts"
-				Length          int    `json:"length"`           // e.g. 2368
-				URL             string `json:"url"`              // e.g. "/services/blobs/download/5b8568651873ed2f4dd461b1/install"
-			} `json:"install"`
-			PreInstall struct {
-				ContentType     string `json:"content_type"`     // e.g. "text/x-shellscript"
-				DestinationPath string `json:"destination_path"` // e.g. "scripts"
-				Length          int    `json:"length"`           // e.g. 1153
-				URL             string `json:"url"`              // e.g. "/services/blobs/download/5b0c5cd11873ed47f11cc0ff/pre_install"
-			} `json:"pre_install"`
-		} `json:"events"`
-		Icon         string `json:"icon"` // e.g. "/icons/boxes/37cb9262-d04f-4bf0-97d7-4429d2bad6c3"
-		IconMetadata struct {
-			Border string `json:"border"` // e.g. "#027333"
-			Fill   string `json:"fill"`   // e.g. "#03924e"
-			Image  string `json:"image"`  // e.g. "/services/blobs/download/5b7b4110759a1802697fa3b6/SAHA5.png"
-		} `json:"icon_metadata"`
-		ID      uuid.UUID `json:"id"` // e.g. "37cb9262-d04f-4bf0-97d7-4429d2bad6c3"
-		Members []struct {
-			Role      string `json:"role"`      // e.g. "collaborator", "read"
-			Workspace string `json:"workspace"` // e.g. "safehaven"
-		} `json:"members"`
-		Name         string `json:"name"`         // e.g. "CMS"
-		Organization string `json:"organization"` // e.g. "centurylink"
-		Owner        string `json:"owner"`        // e.g. "sh"
-		Readme       struct {
-			ContentType string    `json:"content_type"` // e.g. "text/x-markdown"
-			Length      int       `json:"length"`       // e.g. 194
-			UploadDate  Timestamp `json:"upload_date"`  // e.g. "2018-05-24 16:26:53.996892"
-			URL         string    `json:"url"`          // e.g. "/services/blobs/download/5b06e7cd159b89785d75b5d0/README.md"
-		} `json:"readme"`
-		Requirements []string  `json:"requirements"` // e.g. [ "safehaven-cms" ]
-		Schema       string    `json:"schema"`       // e.g. "http://elasticbox.net/schemas/boxes/script
-		Updated      Timestamp `json:"updated"`      // e.g. "2018-08-28 15:21:09.895659"
-		Variables    []struct {
-			Name       string `json:"name"` // e.g. "DEB_URL"
-			Required   bool   `json:"required"`
-			Type       string `json:"type"`       // e.g. "Text", "Password", "Port"
-			Value      string `json:"value"`      // e.g. "http://10.55.220.31/downloads/safehaven-nightly.deb"
-			Visibility string `json:"visibility"` // e.g. "internal", "private"
-		} `json:"variables"`
-		Visibility string `json:"visibility"` // e.g. "workspace"
-	} `json:"boxes"`
-	Created      Timestamp     `json:"created"`     // e.g. "2018-08-29 14:52:47.335395"
-	Deleted      *Timestamp    `json:"deleted"`     // e.g. null
-	Description  string        `json:"description"` // Descriptive text of this deployment
-	ID           string        `json:"id"`          // e.g. "i-z48wub"
-	IsDeployOnly bool          `json:"is_deploy_only"`
-	Members      []interface{} `json:"members"`
-	Name         string        `json:"name"` // Name of the deployment
-	Operation    struct {
+	// Creation date
+	Created Timestamp `json:"created"`
+
+	// Date of termination (not always present)
+	Terminated Timestamp `json:"terminated"`
+
+	// Date of last update
+	Updated Timestamp `json:"updated"`
+
+	// List of members that are sharing this instance
+	Members []interface{} `json:"members"`
+
+	// Instance ID
+	ID string `json:"id"` // e.g. "i-z48wub"
+
+	// Instance URI corresponding to @ID
+	URI string `json:"uri"` // e.g. "/services/instances/i-z48wub"
+
+	// Instance name
+	Name string `json:"name"`
+
+	// Instance owner
+	Owner string `json:"owner"` // e.g. "gerritrenker"
+
+	// Last operation. There are 7 possible operation-event types:
+	// - deploy
+	// - shutdown
+	// - poweron
+	// - reinstall
+	// - reconfigure
+	// - terminate
+	// - terminate_service
+	Operation struct {
 		Created   Timestamp `json:"created"`   // e.g. "2018-08-29 14:52:47.423508"
 		Event     string    `json:"event"`     // e.g. "deploy"
 		Workspace string    `json:"workspace"` // e.g. "gerritrenker"
 	} `json:"operation"`
-	Owner     string `json:"owner"` // e.g. "gerritrenker"
-	PolicyBox struct {
-		AutomaticUpdates string     `json:"automatic_updates"` // e.g. "off"
-		Claims           []string   `json:"claims"`            // e.g. [ "safehaven-cms" ]
-		Created          Timestamp  `json:"created"`           // e.g. "2018-08-21 15:08:55.409444"
-		Deleted          *Timestamp `json:"deleted"`           // e.g. null
-		ID               uuid.UUID  `json:"id"`                // e.g. "f54d2970-ff97-4a28-8c12-f6b6fa1a00dd"
-		Lifespan         struct {
-			Operation string `json:"operation"` // e.g. "none"
-		} `json:"lifespan"`
-		Members      []interface{} `json:"members"`
-		Name         string        `json:"name"`         // e.g. "CMS"
-		Organization string        `json:"organization"` // e.g. "centurylink"
-		Owner        string        `json:"owner"`        // e.g. "gerritrenker"
-		Profile      struct {
-			Cloud          string `json:"cloud"`           // e.g. "vpc-0e77a66a",
-			ElasticIP      bool   `json:"elastic_ip"`      // e.g. false
-			Flavor         string `json:"flavor"`          // e.g. "c1.medium"
-			Image          string `json:"image"`           // e.g. ami-96d129ee"
-			Instances      int    `json:"instances"`       // e.g. 1
-			Keypair        string `json:"keypair"`         // e.g. "None"
-			Location       string `json:"location"`        // e.g. "us-west-2"
-			ManagedOs      bool   `json:"managed_os"`      // e.g. false
-			PlacementGroup string `json:"placement_group"` // e.g. ""
-			PricingInfo    struct {
-				EstimatedMonthly int    `json:"estimated_monthly"` // e.g. 9360000
-				Factor           int    `json:"factor"`            // e.g. 100000
-				HourlyPrice      int    `json:"hourly_price"`      // e.g. 13000
-				ProviderType     string `json:"provider_type"`     // e.g. "Amazon Web Services"
-			} `json:"pricing_info"`
-			Role           string        `json:"role"`            // e.g. "None"
-			Schema         string        `json:"schema"`          // e.g. "http://elasticbox.net/schemas/aws/ec2/profile"
-			SecurityGroups []string      `json:"security_groups"` // e.g. [ "sg-7d528c04" ]
-			Subnet         string        `json:"subnet"`          // e.g. "subnet-e3336a95",
-			Volumes        []interface{} `json:"volumes"`         // e.g. []
-		} `json:"profile"`
-		ProviderID uuid.UUID     `json:"provider_id"` // e.g. "8c50965d-4fd0-481a-b161-eff9fab52e51"
-		Schema     string        `json:"schema"`      // e.g. "http://elasticbox.net/schemas/boxes/policy"
-		Updated    Timestamp     `json:"updated"`     // e.g. "2018-08-21 15:12:08.486998"
-		Variables  []interface{} `json:"variables"`   // e.g. []
-		Visibility string        `json:"visibility"`  // e.g. "workspace"
-	} `json:"policy_box"`
-	PricingHistory []struct {
-		From        Timestamp `json:"from"` // e.g. "2018-08-29 14:52:47.329214"
-		PricingInfo struct {
-			EstimatedMonthly int    `json:"estimated_monthly"` // e.g. 9360000
-			Factor           int    `json:"factor"`            // e.g. 100000
-			HourlyPrice      int    `json:"hourly_price"`      // e.g. 13000
-			ProviderType     string `json:"provider_type"`     // e.g. "Amazon Web Services"
-		} `json:"pricing_info"`
-	} `json:"pricing_history"`
-	Schema  string `json:"schema"` // e.g. "http://elasticbox.net/schemas/instance"
+
+	// Instance service:
 	Service struct {
-		ID       string `json:"id"` // e.g. "eb-e775t"
+		// Service unique identifier
+		ID string `json:"id"` // e.g. "eb-e775t"
+
+		// List of service machines:
 		Machines []struct {
-			Name     string        `json:"name"`     // e.g. "cms1-eb-e775t-1"
-			State    string        `json:"state"`    // e.g. "done"
-			Workflow []interface{} `json:"workflow"` // e.g. []
+			// Machine name
+			Name string `json:"name"` // e.g. "cms1-eb-e775t-1"
+
+			// Machine state, one of
+			// - processing
+			// - done
+			// - unavailable
+			State string `json:"state"` // e.g. "done"
+
+			// List of workflow actions:
+			Workflow []struct {
+				// Workflow action box
+				Box Box `json:"box"`
+
+				// Workflow action event
+				Event string `json:"event"`
+
+				// Workflow action script URI
+				Script URI `json:"script"`
+			} `json:"workflow"`
 		} `json:"machines"`
-		Type string `json:"type"` // e.g. "Linux Compute"
+
+		// Type is a required field, which can be one of
+		// - Linux Compute
+		// - Windows Compute
+		// - CloudFormation Service
+		Type string `json:"type"`
 	} `json:"service"`
-	State     string        `json:"state"`     // e.g. "done"
-	Tags      []string      `json:"tags"`      // e.g. [ "myTag" ]
-	Updated   Timestamp     `json:"updated"`   // e.g. "2018-08-29 14:55:23.604873"
-	URI       string        `json:"uri"`       // e.g. "/services/instances/i-z48wub"
+
+	// List of instance tags
+	Tags []string `json:"tags"` // e.g. [ "myTag" ]
+
+	// Instance state
+	State string `json:"state"` // e.g. "done"
+
+	AutomaticReconfiguration bool `json:"automatic_reconfiguration"`
+
+	AutomaticUpdates string `json:"automatic_updates"` // e.g. "off"
+
+	// List of instance bindings
+	Bindings []struct {
+		Instance string `json:"instance"`
+		Name     string `json:"name"`
+	} `json:"bindings"`
+
+	Box uuid.UUID `json:"box"` // e.g. "37cb9262-d04f-4bf0-97d7-4429d2bad6c3"
+
+	// List of boxes
+	Boxes     []Box `json:"boxes"`
+	PolicyBox Box   `json:"policy_box"`
+
+	Deleted     interface{} `json:"deleted"`     // e.g. null
+	Description string      `json:"description"` // Descriptive text of this deployment
+
+	IsDeployOnly bool `json:"is_deploy_only"`
+
+	PricingHistory []struct {
+		From        Timestamp          `json:"from"`
+		PricingInfo PricingInformation `json:"pricing_info"`
+	} `json:"pricing_history"`
+
+	// Instance schema URI
+	Schema URI `json:"schema"` // e.g. "http://elasticbox.net/schemas/instance"
+
 	Variables []interface{} `json:"variables"` // e.g. []
 }
 
@@ -160,11 +137,11 @@ func (c *Client) GetInstances() (res []Instance, err error) {
 
 // Service represents the service associated with an instance.
 type InstanceService struct {
-	ClcAlias string     `json:"clc_alias"` // e.g. "AVCR"
-	Created  Timestamp  `json:"created"`   // e.g. "2018-08-29 14:52:47.357210"
-	Deleted  *Timestamp `json:"deleted"`   // e.g. null
-	Icon     string     `json:"icon"`      // e.g. "images/platform/linux.png"
-	ID       string     `json:"id"`        // e.g. "eb-e775t"
+	ClcAlias string      `json:"clc_alias"` // e.g. "AVCR"
+	Created  Timestamp   `json:"created"`   // e.g. "2018-08-29 14:52:47.357210"
+	Deleted  interface{} `json:"deleted"`   // e.g. null
+	Icon     string      `json:"icon"`      // e.g. "images/platform/linux.png"
+	ID       string      `json:"id"`        // e.g. "eb-e775t"
 	Machines []struct {
 		Address struct {
 			Private string  `json:"private"` // e.g.  "172.31.1.161"

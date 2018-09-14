@@ -40,25 +40,33 @@ type Provider struct {
 	State string `json:"state"`
 
 	// Identifies the provider as one of the following:
-	// - Amazon Web Services,
-	// - Rackspace, Openstack,
-	// - VMware vSphere,
-	// - Google Compute,
-	// - Microsoft Azure,
-	// - Cloudstack,
-	// - SoftLayer.
+	// - Amazon Web Services
+	// - Rackspace, Openstack
+	// - VMware vSphere
+	// - Google Compute
+	// - Microsoft Azure
+	// - Cloudstack
+	// - SoftLayer
 	Type string `json:"type"`
 
 	// Unique resource identifier path to the provider account
 	URI URI `json:"uri"`
 
-	// Schema URi
+	// Schema URI
 	Schema URI `json:"schema"`
 }
 
 // GetProviders lists all providers.
-func (c *Client) GetProviders() ([]Provider, error) {
-	var res []Provider
-
+func (c *Client) GetProviders() (res []Provider, err error) {
 	return res, c.Get("/services/providers", &res)
+}
+
+// GetProvider retrieves a single provider by @providerId.
+func (c *Client) GetProvider(providerId string) (res Provider, err error) {
+	return res, c.Get("/services/providers/"+providerId, &res)
+}
+
+// DeleteProvider attempts to remove provider @providerId.
+func (c *Client) DeleteProvider(providerId string) error {
+	return c.getResponse("/services/providers/"+providerId, "DELETE", nil, nil)
 }

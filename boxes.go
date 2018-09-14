@@ -10,16 +10,16 @@ import (
 // Event represents a single box event
 type Event struct {
 	// URI path of this event
-	URL URI `json:"url"`
+	URL URI `json:"url"` // e.g. "/services/blobs/download/5b8568651873ed2f4dd461b1/install"
 
 	// MIME type of the file
-	ContentType string `json:"content_type"`
+	ContentType string `json:"content_type"` // e.g. "text/x-shellscript"
 
 	// Target/destination path of the file
-	DestinationPath string `json:"destination_path"`
+	DestinationPath string `json:"destination_path"` // e.g. "scripts"
 
 	// Size of the file (in bytes?)
-	Length int64 `json:"length"`
+	Length int64 `json:"length"` // e.g. 2368
 
 	// Time/date of upload
 	UploadDate Timestamp `json:"upload_date"`
@@ -83,10 +83,10 @@ type Volume struct {
 
 // Readme represents a READ.ME file
 type Readme struct {
-	ContentType string `json:"content_type"`
-	Length      int64  `json:"length"`
-	UploadDate  string `json:"upload_date"`
-	URL         URI    `json:"url"`
+	ContentType string    `json:"content_type"` // e.g. "text/x-markdown"
+	Length      int64     `json:"length"`       // e.g. 194
+	UploadDate  Timestamp `json:"upload_date"`  // e.g. "2018-05-24 16:26:53.996892"
+	URL         URI       `json:"url"`          // e.g. "/services/blobs/download/5b06e7cd159b89785d75b5d0/README.md"
 }
 
 func (r Readme) String() string { return r.URL.String() }
@@ -125,17 +125,17 @@ type Box struct {
 	// Indicates at what level the box is visible.
 	Visibility Visibility `json:"visibility"`
 
-	// Presumably "on" or "off":
+	// Automatic updates: seems to be one of { "off", "major", "minor", "patch" }
 	AutomaticUpdates string      `json:"automatic_updates"` // e.g. "off"
 	Categories       []string    `json:"categories"`        // e.g.  [ "Continuous Integration" ]
-	Claims           []string    `json:"claims"`
+	Claims           []string    `json:"claims"`            // e.g. [ "safehaven-cms" ]
 	Deleted          interface{} `json:"deleted"`
 
 	// Box description.
 	Description string `json:"description"` // e.g. "With ElasticBox CI plugin"
 
 	// Box requirements.
-	Requirements []string `json:"requirements"` // e.g. [ "linux" ]
+	Requirements []string `json:"requirements"` // e.g. [ "safehaven-cms" ]
 
 	// List of box variables, each variable object contains
 	// the parameters: type, name and value (plus a few more).
@@ -154,7 +154,7 @@ type Box struct {
 	// Box URI
 	URI URI `json:"uri"` // e.g. "/services/boxes/e0715702-cf5c-4c88-bfa1-2e5e3808e597"
 
-	// Box schema uri.
+	// Box schema URI.
 	Schema URI `json:"schema"` // e.g. "http://elasticbox.net/schemas/boxes/script"
 
 	// List of Box members.
@@ -169,7 +169,7 @@ type Box struct {
 	// Box owner.
 	Owner string `json:"owner"` // e.g. "elasticbox"
 
-	// References the ID of another box
+	// ID of the box version that this box is a draft from
 	DraftFrom uuid.UUID `json:"draft_from"`
 
 	// Map of box events
