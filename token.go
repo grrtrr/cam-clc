@@ -19,10 +19,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	// Name of the file to store the last bearer-token
-	tokenFile = "cam.token"
-)
+// Name of the file to cache the last-used bearer-token.
+const tokenFile = "cam.token"
 
 // Token is the CAM JWT Authorization token
 type Token string
@@ -33,6 +31,15 @@ func (t Token) String() string {
 		return fmt.Sprintf("invalid CAM token (%s)", err)
 	}
 	return c.String()
+}
+
+// NewClient returns a CAM client that uses @t as authorization/bearer token.
+func (t Token) NewClient(options ...ClientOption) *Client {
+	return NewClient(RequestOptions(Headers(map[string]string{
+		"Authorization": "Bearer " + string(t),
+		"Content-Type":  "application/json; charset=utf-8",
+		"Accept":        "application/json",
+	}))).With(options...)
 }
 
 // Decode attempts to parse @t, returning an error if it fails to parse.

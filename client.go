@@ -40,25 +40,15 @@ type Client struct {
 
 // NewClient returns a new standalone client.
 func NewClient(options ...ClientOption) *Client {
-	var c = &Client{client: &http.Client{}}
-
-	for _, setOption := range options {
-		setOption(c)
+	var c = &Client{
+		baseURL: "https://cam.ctl.io",
+		client:  &http.Client{},
 	}
-	return c
+	return c.With(options...)
 }
 
-// NewClient turns @t into a CAM client.
-func (t Token) NewClient(options ...ClientOption) *Client {
-	var c = NewClient(HostURL("https://cam.ctl.io"),
-		RequestOptions(Headers(map[string]string{
-			"Authorization": "Bearer " + string(t),
-			"Content-Type":  "application/json; charset=utf-8",
-			"Accept":        "application/json",
-		})),
-	)
-
-	// Apply the provided options last, to override any defaults
+// With enables @options on @c.
+func (c *Client) With(options ...ClientOption) *Client {
 	for _, setOption := range options {
 		setOption(c)
 	}
@@ -66,21 +56,18 @@ func (t Token) NewClient(options ...ClientOption) *Client {
 }
 
 // WithDebug enables debugging on @c.
-func (c *Client) WithDebug(enabled bool) *Client {
-	c.requestDebug = enabled
-	return c
+func (c *Client) WithDebug() *Client {
+	return c.With(Debug(true))
 }
 
 // WithContext sets the context to @ctx.
 func (c *Client) WithContext(ctx context.Context) *Client {
-	c.ctx = ctx
-	return c
+	return c.With(Context(ctx))
 }
 
 // WithJsonResponse enables printing the JSON response to stdout.
-func (c *Client) WithJsonResponse(enabled bool) *Client {
-	c.jsonResponse = enabled
-	return c
+func (c *Client) WithJsonResponse() *Client {
+	return c.With(JsonResponse(true))
 }
 
 // Get performs a GET /path, with output into @resModel
@@ -158,7 +145,7 @@ func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{
 			logger.Debugf("%s", string(body))
 		}
 
-		if c.jsonResponse {
+		if c.jsonResponse && len(body) > 0 {
 			var b bytes.Buffer
 
 			if err := json.Indent(&b, body, "", "\t"); err != nil {

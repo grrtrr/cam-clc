@@ -3,6 +3,7 @@ package clccam
 import (
 	"fmt"
 
+	"github.com/coreos/go-semver/semver"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -191,6 +192,9 @@ type Box struct {
 	// Type seems to be often empty
 	Type string `json:"type"` // e.g. "CloudFormation Service"
 
+	// BoxVersion seems to be only included when making the 'versions' API call
+	BoxVersion BoxVersion `json:"version"`
+
 	/*
 	 * Html Section
 	 */
@@ -213,12 +217,63 @@ type Box struct {
 	} `json:"action_button"`
 }
 
-// GetBox returns the details of box @boxId.
-func (c *Client) GetBox(boxId string) (res Box, err error) {
-	return res, c.Get("/services/boxes/"+boxId, &res)
+// Version returns the version of @b (where defined).
+func (b *Box) Version() semver.Version {
+	return semver.Version{
+		Major: b.BoxVersion.Number.Major,
+		Minor: b.BoxVersion.Number.Minor,
+		Patch: b.BoxVersion.Number.Patch,
+	}
+}
+
+// BoxVersion is included in the Box struct when doing the 'versions' API call.
+type BoxVersion struct {
+	Box         uuid.UUID                           `json:"box"`         // e.g. "04560033-0d5c-47ed-9c77-7b13b096c172"
+	Number      struct{ Major, Minor, Patch int64 } `json:"number"`      // e.g.  { "major": 0, "minor": 1, "patch": 0 }
+	Workspace   string                              `json:"workspace"`   // e.g. "elasticbox"
+	Description string                              `json:"description"` // e.g. "ElasticBox automatic version"
 }
 
 // GetBoxes lists all boxes that are accessible in the personal workspace of the authenticated user.
 func (c *Client) GetBoxes() (res []Box, err error) {
 	return res, c.Get("/services/boxes", &res)
+}
+
+// GetBox returns the details of box @boxId.
+func (c *Client) GetBox(boxId string) (res Box, err error) {
+	return res, c.Get("/services/boxes/"+boxId, &res)
+}
+
+// GetBoxStack returns the stack of the box @boxId.
+func (c *Client) GetBoxStack(boxId string) (res []Box, err error) {
+	return res, c.Get(fmt.Sprintf("/services/boxes/%s/stack", boxId), &res)
+}
+
+// BoxBinding is returned by the 'bindings' API call.
+type BoxBinding struct {
+	ID   uuid.UUID `json:"id"`   // e.g. "71c9a7bf-56fc-43b5-973b-0161981f4857"
+	Name string    `json:"name"` // e.g. "MySQL"
+	Icon URI       `json:"icon"` // e.g. "/icons/boxes/71c9a7bf-56fc-43b5-973b-0161981f4857"
+	URL  URI       `json:"uri"`  // e.g. "/services/boxes/71c9a7bf-56fc-43b5-973b-0161981f4857"
+}
+
+// GetBoxBindings returns the bindings of @boxId.
+func (c *Client) GetBoxBindings(boxId string) (res []BoxBinding, err error) {
+	return res, c.Get(fmt.Sprintf("/services/boxes/%s/bindings", boxId), &res)
+}
+
+// GetBoxVersions returns the versions of @boxId.
+func (c *Client) GetBoxVersions(boxId string) (res []Box, err error) {
+	return res, c.Get(fmt.Sprintf("/services/boxes/%s/versions", boxId), &res)
+}
+
+// GetBoxDiff returns the differences of @boxId.
+// FIXME: no documentation for this method and the call returns 405 (not allowed).
+func (c *Client) GetBoxDiff(boxId string) error {
+	return c.Get(fmt.Sprintf("/services/boxes/%s/diff", boxId), nil)
+}
+
+// DeleteBox attempts to remove box @boxId.
+func (c *Client) DeleteBox(boxId string) error {
+	return c.getResponse("/services/boxes/"+boxId, "DELETE", nil, nil)
 }
