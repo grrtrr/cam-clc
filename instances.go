@@ -37,18 +37,11 @@ type Instance struct {
 	// Instance owner
 	Owner string `json:"owner"` // e.g. "gerritrenker"
 
-	// Last operation. There are 7 possible operation-event types:
-	// - deploy
-	// - shutdown
-	// - poweron
-	// - reinstall
-	// - reconfigure
-	// - terminate
-	// - terminate_service
+	// Last operation.
 	Operation struct {
-		Created   Timestamp `json:"created"`   // e.g. "2018-08-29 14:52:47.423508"
-		Event     string    `json:"event"`     // e.g. "deploy"
-		Workspace string    `json:"workspace"` // e.g. "gerritrenker"
+		Created   Timestamp     `json:"created"`   // e.g. "2018-08-29 14:52:47.423508"
+		Event     InstanceEvent `json:"event"`     // e.g. "deploy"
+		Workspace string        `json:"workspace"` // e.g. "gerritrenker"
 	} `json:"operation"`
 
 	// Instance service:
@@ -57,28 +50,7 @@ type Instance struct {
 		ID string `json:"id"` // e.g. "eb-e775t"
 
 		// List of service machines:
-		Machines []struct {
-			// Machine name
-			Name string `json:"name"` // e.g. "cms1-eb-e775t-1"
-
-			// Machine state, one of
-			// - processing
-			// - done
-			// - unavailable
-			State string `json:"state"` // e.g. "done"
-
-			// List of workflow actions:
-			Workflow []struct {
-				// Workflow action box
-				Box Box `json:"box"`
-
-				// Workflow action event
-				Event string `json:"event"`
-
-				// Workflow action script URI
-				Script URI `json:"script"`
-			} `json:"workflow"`
-		} `json:"machines"`
+		Machines []Machine `json:"machines"`
 
 		// Type is a required field, which can be one of
 		// - Linux Compute
@@ -91,7 +63,7 @@ type Instance struct {
 	Tags []string `json:"tags"` // e.g. [ "myTag" ]
 
 	// Instance state
-	State string `json:"state"` // e.g. "done"
+	State InstanceState `json:"state"` // e.g. "done"
 
 	AutomaticReconfiguration bool `json:"automatic_reconfiguration"`
 
@@ -125,6 +97,27 @@ type Instance struct {
 	Variables []interface{} `json:"variables"` // e.g. []
 }
 
+// Machine is used to describe a VM within a service
+type Machine struct {
+	// Machine name
+	Name string `json:"name"` // e.g. "cms1-eb-e775t-1"
+
+	// Machine state
+	State InstanceState `json:"state"` // e.g. "done"
+
+	// List of workflow actions:
+	Workflow []struct {
+		// Workflow action box
+		Box Box `json:"box"`
+
+		// Workflow action event
+		Event string `json:"event"`
+
+		// Workflow action script URI
+		Script URI `json:"script"`
+	} `json:"workflow"`
+}
+
 // GetInstance retrieves details of @instanceId
 func (c *Client) GetInstance(instanceId string) (res Instance, err error) {
 	return res, c.Get("/services/instances/"+instanceId, &res)
@@ -147,16 +140,16 @@ type InstanceService struct {
 			Private string  `json:"private"` // e.g.  "172.31.1.161"
 			Public  *string `json:"public"`  // e.g. null
 		} `json:"address"`
-		AgentVersion   string    `json:"agent_version"`    // e.g. "6.11"
-		ExternalID     string    `json:"external_id"`      // e.g. "i-000727071fbfcec16"
-		Hostname       string    `json:"hostname"`         // e.g. ""
-		LastAgentClose Timestamp `json:"last_agent_close"` // e.g. "2018-08-29 14:55:20.850348"
-		LastAgentPing  Timestamp `json:"last_agent_ping"`  // e.g. "2018-08-29 14:53:39.801080"
-		Name           string    `json:"name"`             // e.g. "cms1-eb-e775t-1"
-		Schema         string    `json:"schema"`           // e.g. "http://elasticbox.net/schemas/aws/service-machine"
-		State          string    `json:"state"`            // e.g. "done"
-		SupportID      string    `json:"support_id"`       // e.g. "AWSUSW29417"
-		Token          uuid.UUID `json:"token"`            // e.g. "b7445ed9-a4ba-4e93-9462-703ab2bd700e"
+		AgentVersion   string        `json:"agent_version"`    // e.g. "6.11"
+		ExternalID     string        `json:"external_id"`      // e.g. "i-000727071fbfcec16"
+		Hostname       string        `json:"hostname"`         // e.g. ""
+		LastAgentClose Timestamp     `json:"last_agent_close"` // e.g. "2018-08-29 14:55:20.850348"
+		LastAgentPing  Timestamp     `json:"last_agent_ping"`  // e.g. "2018-08-29 14:53:39.801080"
+		Name           string        `json:"name"`             // e.g. "cms1-eb-e775t-1"
+		Schema         string        `json:"schema"`           // e.g. "http://elasticbox.net/schemas/aws/service-machine"
+		State          InstanceState `json:"state"`            // e.g. "done"
+		SupportID      string        `json:"support_id"`       // e.g. "AWSUSW29417"
+		Token          uuid.UUID     `json:"token"`            // e.g. "b7445ed9-a4ba-4e93-9462-703ab2bd700e"
 	} `json:"machines"`
 	Operation    string `json:"operation"`    // e.g. "deploy"
 	Organization string `json:"organization"` // e.g. "centurylink"
@@ -182,9 +175,9 @@ type InstanceService struct {
 		Subnet         string        `json:"subnet"`          // e.g. "subnet-e3336a95"
 		Volumes        []interface{} `json:"volumes"`         // e.g. []
 	} `json:"profile"`
-	ProviderID   uuid.UUID `json:"provider_id"` // e.g. "8c50965d-4fd0-481a-b161-eff9fab52e51"
-	Schema       string    `json:"schema"`      // e.g. "http://elasticbox.net/schemas/service"
-	State        string    `json:"state"`       // e.g. "done"
+	ProviderID   uuid.UUID     `json:"provider_id"` // e.g. "8c50965d-4fd0-481a-b161-eff9fab52e51"
+	Schema       string        `json:"schema"`      // e.g. "http://elasticbox.net/schemas/service"
+	State        InstanceState `json:"state"`       // e.g. "done"
 	StateHistory []struct {
 		Started Timestamp `json:"started"` // e.g. "2018-08-29 14:53:31.469591"
 		State   string    `json:"state"`
