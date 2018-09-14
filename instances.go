@@ -128,6 +128,11 @@ func (c *Client) GetInstances() (res []Instance, err error) {
 	return res, c.Get("/services/instances", &res)
 }
 
+// DeleteInstance attempts to remove instance @instanceId.
+func (c *Client) DeleteInstance(instanceId string) error {
+	return c.getResponse("/services/instances/"+instanceId, "DELETE", nil, nil)
+}
+
 // Service represents the service associated with an instance.
 type InstanceService struct {
 	ClcAlias string      `json:"clc_alias"` // e.g. "AVCR"

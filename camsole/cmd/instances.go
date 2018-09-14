@@ -10,18 +10,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	var cmdInstances = &cobra.Command{ // Top-level command
+var (
+	cmdInstances = &cobra.Command{ // Top-level command
 		Use:     "vm",
 		Aliases: []string{"instance"},
 		Short:   "Manage instances",
 	}
 
-	cmdInstances.AddCommand(instanceGet)
-	Root.AddCommand(cmdInstances)
-}
-
-var (
 	// List one or more instances (VMs)
 	instanceGet = &cobra.Command{
 		Use:     "ls  [instanceID1, ...]",
@@ -60,7 +55,27 @@ var (
 			}
 		},
 	}
+
+	// Delete instance(s)
+	instanceDelete = &cobra.Command{
+		Use:     "rm  [instanceID1, ...]",
+		Aliases: []string{"remove", "delete"},
+		Short:   "Delete instance(s)",
+		PreRunE: checkAtLeastArgs(1, "Need at least 1 instance to delete"),
+		Run: func(cmd *cobra.Command, args []string) {
+			for _, instanceId := range args {
+				if err := client.DeleteInstance(instanceId); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to delete instance %s: %s\n", instanceId, err)
+				}
+			}
+		},
+	}
 )
+
+func init() {
+	cmdInstances.AddCommand(instanceGet, instanceDelete)
+	Root.AddCommand(cmdInstances)
+}
 
 func printInstances(instances []clccam.Instance) {
 	if len(instances) == 0 {
