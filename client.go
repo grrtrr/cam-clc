@@ -155,11 +155,19 @@ func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{
 		}
 
 		if resModel != nil {
-			if res.ContentLength == 0 {
-				return errors.Errorf("unable do populate %T result model, due to empty %q response",
-					resModel, res.Status)
+			switch val := resModel.(type) {
+			case *string:
+				*val = string(body)
+			case *[]string:
+				*val = strings.Split(string(body), "\n")
+			default:
+				if res.ContentLength == 0 {
+					return errors.Errorf("unable do populate %T result model, due to empty %q response",
+						resModel, res.Status)
+				}
+				return json.Unmarshal(body, resModel)
 			}
-			return json.Unmarshal(body, resModel)
+			return nil
 		} else if res.ContentLength > 0 {
 			return errors.Errorf("unable to decode non-empty %q response (%d bytes) to nil response model",
 				res.Status, res.ContentLength)

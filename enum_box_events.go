@@ -68,6 +68,15 @@ func (b BoxEvent) MarshalText() ([]byte, error) {
 	return nil, fmt.Errorf("invalid BoxEvent %d", b)
 }
 
+// Implements fmt.Stringer
+func (b BoxEvent) String() string {
+	if b, err := b.MarshalText(); err != nil {
+		return err.Error()
+	} else {
+		return string(b)
+	}
+}
+
 // Implements encoding.TextUnmarshaler
 func (b *BoxEvent) UnmarshalText(data []byte) error {
 	switch string(data) {
@@ -97,19 +106,19 @@ func (b *BoxEvent) UnmarshalText(data []byte) error {
 	return nil
 }
 
-// Implements fmt.Stringer
-func (b BoxEvent) String() string {
-	if b, err := b.MarshalText(); err != nil {
-		return err.Error()
-	} else {
-		return string(b)
-	}
+// Implements flag.Value
+func (b *BoxEvent) Set(s string) error {
+	return b.UnmarshalText([]byte(s))
+}
+
+// Implements pflag.Value (superset of flag.Value)
+func (b BoxEvent) Type() string {
+	return "BoxEvent"
 }
 
 // BoxEventFromString attempts to parse @s as stringified BoxEvent.
 func BoxEventFromString(s string) (val BoxEvent, err error) {
-	err = val.UnmarshalText([]byte(s))
-	return val, err
+	return val, val.Set(s)
 }
 
 // BoxEventStrings returns the list of BoxEvent string literals, or maps @vals if non-empty.
@@ -169,3 +178,4 @@ func (b *BoxEvent) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 	return b.UnmarshalText([]byte(output))
 }
+

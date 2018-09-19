@@ -1,7 +1,7 @@
 package clccam
 
 import (
-	"github.com/Masterminds/semver"
+	"github.com/coreos/go-semver/semver"
 	uuid "github.com/satori/go.uuid"
 )
 

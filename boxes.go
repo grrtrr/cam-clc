@@ -25,20 +25,20 @@ type Event struct {
 	UploadDate Timestamp `json:"upload_date"`
 }
 
-// BasicBoxVariable is used e.g. inside a ServiceBox
-type BasicBoxVariable struct {
+// BasicVariable is used e.g. inside a ServiceBox
+type BasicVariable struct {
 	Name  string `json:"name"`
+	Type  string `json:"type"`
 	Value string `json:"value"`
 }
 
-func (b BasicBoxVariable) String() string {
+func (b BasicVariable) String() string {
 	return fmt.Sprintf(`%s="%s"`, b.Name, b.Value)
 }
 
 // BoxVariable specifies a single variable associated with a Box
 type BoxVariable struct {
-	BasicBoxVariable
-	Type             string     `json:"type"`
+	BasicVariable
 	Options          string     `json:"options"`
 	Required         bool       `json:"required"`
 	Scope            string     `json:"scope"`
@@ -106,9 +106,9 @@ type Service struct {
 
 // A ServiceBox is a Box inside a Service
 type ServiceBox struct {
-	ID        uuid.UUID          `json:"id"`
-	Latest    bool               `json:"latest"`
-	Variables []BasicBoxVariable `json:"variables"`
+	ID        uuid.UUID       `json:"id"`
+	Latest    bool            `json:"latest"`
+	Variables []BasicVariable `json:"variables"`
 }
 
 // Box represents a single box

@@ -28,6 +28,15 @@ func (i InstanceState) MarshalText() ([]byte, error) {
 	return nil, fmt.Errorf("invalid InstanceState %d", i)
 }
 
+// Implements fmt.Stringer
+func (i InstanceState) String() string {
+	if b, err := i.MarshalText(); err != nil {
+		return err.Error()
+	} else {
+		return string(b)
+	}
+}
+
 // Implements encoding.TextUnmarshaler
 func (i *InstanceState) UnmarshalText(data []byte) error {
 	switch string(data) {
@@ -43,19 +52,19 @@ func (i *InstanceState) UnmarshalText(data []byte) error {
 	return nil
 }
 
-// Implements fmt.Stringer
-func (i InstanceState) String() string {
-	if b, err := i.MarshalText(); err != nil {
-		return err.Error()
-	} else {
-		return string(b)
-	}
+// Implements flag.Value
+func (i *InstanceState) Set(s string) error {
+	return i.UnmarshalText([]byte(s))
+}
+
+// Implements pflag.Value (superset of flag.Value)
+func (i InstanceState) Type() string {
+	return "InstanceState"
 }
 
 // InstanceStateFromString attempts to parse @s as stringified InstanceState.
 func InstanceStateFromString(s string) (val InstanceState, err error) {
-	err = val.UnmarshalText([]byte(s))
-	return val, err
+	return val, val.Set(s)
 }
 
 // InstanceStateStrings returns the list of InstanceState string literals, or maps @vals if non-empty.
