@@ -14,7 +14,7 @@ func init() {
 	// Print details of a CAM service/user token to stdout
 	Root.AddCommand(&cobra.Command{
 		Use:     "token  <token | /path/to/token.file>",
-		Aliases: []string{"t", "dump-token"},
+		Aliases: []string{"t", "tok", "dump-token"},
 		Short:   "Print details of a CAM token",
 		PreRunE: checkArgs(1, "Need token contents or file path"),
 		Run: func(cmd *cobra.Command, args []string) {

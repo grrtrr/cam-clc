@@ -36,7 +36,7 @@ var (
 			} else {
 				for _, instanceId := range args {
 					if instance, err := client.GetInstance(instanceId); err != nil {
-						fmt.Fprintf(os.Stderr, "Failed to query instance %s: %s\n", instanceId, err)
+						die("Failed to query instance %s: %s", instanceId, err)
 					} else if cmd.Flags().Lookup("json").Value.String() != "true" {
 						printInstances([]clccam.Instance{instance})
 
@@ -231,7 +231,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, instanceId := range args {
 				if err := client.DeployInstance(instanceId); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to re-deploy %s: %s\n", instanceId, err)
+					die("Failed to re-deploy %s: %s\n", instanceId, err)
 				}
 			}
 		},
@@ -246,7 +246,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, instanceId := range args {
 				if err := client.PowerOnInstance(instanceId); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to power-on %s: %s\n", instanceId, err)
+					die("Failed to power-on %s: %s\n", instanceId, err)
 				}
 			}
 		},
@@ -261,7 +261,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, instanceId := range args {
 				if err := client.ShutdownInstance(instanceId); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to shut down %s: %s\n", instanceId, err)
+					die("Failed to shut down %s: %s\n", instanceId, err)
 				}
 			}
 		},
@@ -276,7 +276,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, instanceId := range args {
 				if err := client.ReinstallInstance(instanceId); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to re-install %s: %s\n", instanceId, err)
+					die("Failed to re-install %s: %s\n", instanceId, err)
 				}
 			}
 		},
@@ -291,7 +291,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, instanceId := range args {
 				if err := client.ReconfigureInstance(instanceId); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to re-configure %s: %s\n", instanceId, err)
+					die("Failed to re-configure %s: %s\n", instanceId, err)
 				}
 			}
 		},
@@ -306,7 +306,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, instanceId := range args {
 				if err := client.ImportInstance(instanceId); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to import %s: %s\n", instanceId, err)
+					die("Failed to import %s: %s\n", instanceId, err)
 				}
 			}
 		},
@@ -321,7 +321,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, instanceId := range args {
 				if err := client.CancelImportInstance(instanceId); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to cancel import %s: %s\n", instanceId, err)
+					die("Failed to cancel import %s: %s\n", instanceId, err)
 				}
 			}
 		},
@@ -336,7 +336,7 @@ var (
 		PreRunE: checkArgs(1, "Need an instance ID"),
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := client.MakeManagedInstance(args[0]); err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to make managed instance: %s\n", err)
+				die("Failed to make managed instance: %s\n", err)
 			}
 		},
 	}
@@ -356,7 +356,7 @@ var (
 
 			for _, instanceId := range args {
 				if err := client.DeleteInstance(instanceId, op); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to %s %s: %s\n", strings.Replace(op, "_", "-", 1), instanceId, err)
+					die("Failed to %s %s: %s\n", strings.Replace(op, "_", "-", 1), instanceId, err)
 				}
 			}
 		},
@@ -371,7 +371,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, instanceId := range args {
 				if err := client.DeleteInstance(instanceId, "delete"); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to delete %s: %s\n", instanceId, err)
+					die("Failed to delete %s: %s\n", instanceId, err)
 				}
 			}
 		},
