@@ -4,17 +4,19 @@ WINDOWS_TARGET := $(TARGET).exe
 MAC_TARGET     := $(TARGET).mac
 
 
-.PHONY: all linux windows mac clean get-deps
+.PHONY: all linux windows mac clean get-deps $(TARGET)
 
 linux:   $(TARGET)
 windows: $(WINDOWS_TARGET)
 mac:     $(MAC_TARGET)
 
+all: $(TARGET)
+
 # Download dependencies
 get-deps:
 	go get -d
 
-$(TARGET): get-deps
+$(TARGET): #get-deps
 	go build -o $@ .
 	strip -s $@
 

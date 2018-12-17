@@ -18,10 +18,17 @@ import (
 // A ClientOption configures the @client using the functional option pattern.
 type ClientOption func(client *Client)
 
-// HostURL sets the base @url of the client (thanks to go-resty/resty)
-func HostURL(url string) ClientOption {
+// HostURL sets the base of the client if @host non-empty, otherwise uses the default base URL.
+func HostURL(host string) ClientOption {
 	return func(r *Client) {
-		r.baseURL = strings.TrimRight(url, "/")
+		if host != "" {
+			u, err := url.Parse(strings.TrimRight(host, "/"))
+			if err != nil {
+				logger.Fatalf("invalid URL %q: %s", host, err)
+			}
+			u.Scheme = "https"
+			r.baseURL = u.String()
+		}
 	}
 }
 

@@ -16,6 +16,7 @@ var (
 
 	// Flags:
 	rootFlags struct {
+		url     string        // REST endpoint URL
 		token   string        // Bearer Token
 		json    bool          // Print JSON response to stdout
 		debug   bool          // Print request/response debug to stderr
@@ -55,6 +56,7 @@ var (
 
 			// Client initialization:
 			client = camToken.NewClient(
+				clccam.HostURL(rootFlags.url),
 				clccam.Retryer(3, 1*time.Second, rootFlags.timeout),
 				clccam.Context(context.Background()),
 				clccam.Debug(rootFlags.debug),
@@ -65,7 +67,14 @@ var (
 )
 
 func init() {
+	var endpointUrl = "cam.ctl.io" // Default endpoint URL
+
+	if u := os.Getenv("CAM_URL"); u != "" {
+		endpointUrl = u
+	}
+
 	Root.PersistentFlags().StringVarP(&rootFlags.token, "token", "t", os.Getenv("CAM_TOKEN"), "Path or contents of CAM token")
+	Root.PersistentFlags().StringVarP(&rootFlags.url, "url", "u", endpointUrl, "REST API endpoint URL")
 	Root.PersistentFlags().BoolVarP(&rootFlags.debug, "debug", "d", false, "Print request/response debug output to stderr")
 	Root.PersistentFlags().BoolVar(&rootFlags.json, "json", false, "Print JSON response to stdout")
 	Root.PersistentFlags().DurationVar(&rootFlags.timeout, "timeout", 180*time.Second, "Client default timeout")

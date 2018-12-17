@@ -25,7 +25,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
 				if boxes, err := client.GetBoxes(); err != nil {
-					die("failed to query %s box list: %s", args[0], err)
+					die("failed to query box list: %s", err)
 				} else if cmd.Flags().Lookup("json").Value.String() != "true" {
 					listBoxes(boxes)
 				}
