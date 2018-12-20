@@ -42,7 +42,10 @@ type Client struct {
 func NewClient(options ...ClientOption) *Client {
 	var c = &Client{
 		baseURL: "https://cam.ctl.io",
-		client:  &http.Client{},
+		client: &http.Client{
+			// Make default explicit, needed/used by InsecureTLS() and Retryer()
+			Transport: http.DefaultTransport,
+		},
 	}
 	return c.With(options...)
 }
@@ -78,22 +81,41 @@ func (c *Client) Get(path string, resModel interface{}) error {
 // getResponse performs a generic request
 // @urlPath:  request path relative to %BaseURL
 // @verb:     request verb
-// @reqModel: request model to serialize, or nil.
+// @reqModel: request model to serialize, or nil. This can be one of two things:
+//            (a) []byte slice - will be transmitted without further encoding,
+//                attempting to infer the Content Type from the contents of the buffer;
+//            (b) anything else - will be JSON encoded, with corresponding content-type.
 // @resModel: result model to deserialize, must be a pointer to the expected result, or nil.
+// @opts:     per-request options (will override any static RequestOptions that @c has).
 // Evaluates the StatusCode of the BaseResponse (embedded) in @inModel and sets @err accordingly.
 // If @err == nil, fills in @resModel, else returns error.
-func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{}) error {
+func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{}, opts ...RequestOption) error {
 	var (
 		url     = fmt.Sprintf("%s/%s", c.baseURL, strings.TrimLeft(urlPath, "/"))
 		reqBody io.Reader
 	)
 
 	if reqModel != nil {
-		jsonReq, err := json.Marshal(reqModel)
-		if err != nil {
+		var (
+			body        []byte
+			contentType string
+		)
+
+		if b, ok := reqModel.([]byte); ok {
+			body = b
+			contentType = http.DetectContentType(b)
+		} else if jsonReq, err := json.Marshal(reqModel); err != nil {
 			return errors.Wrapf(err, "failed to encode request model %T %+v", reqModel, reqModel)
+		} else {
+			body = jsonReq
+			contentType = "application/json; charset=utf-8"
 		}
-		reqBody = bytes.NewBuffer(jsonReq)
+
+		opts = append(opts, Headers(map[string]string{
+			"Content-Type":   contentType,
+			"Content-Length": fmt.Sprint(len(body)),
+		}))
+		reqBody = bytes.NewBuffer(body)
 	}
 
 	// resModel must be a pointer type (call-by-value)
@@ -112,9 +134,13 @@ func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{
 		req = req.WithContext(c.ctx)
 	}
 
-	for _, setOption := range c.requestOptions {
+	// Options: set static client options first, so that @opts can override them if necessary.
+	for _, setOption := range append(c.requestOptions, opts...) {
 		setOption(req)
 	}
+
+	// This function expects/accepts a JSON response.
+	req.Header.Set("Accept", "application/json")
 
 	if c.requestDebug {
 		reqDump, _ := httputil.DumpRequest(req, true)

@@ -37,8 +37,6 @@ func (t Token) String() string {
 func (t Token) NewClient(options ...ClientOption) *Client {
 	return NewClient(RequestOptions(Headers(map[string]string{
 		"Authorization": "Bearer " + string(t),
-		"Content-Type":  "application/json; charset=utf-8",
-		"Accept":        "application/json",
 	}))).With(options...)
 }
 

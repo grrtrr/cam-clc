@@ -16,11 +16,12 @@ var (
 
 	// Flags:
 	rootFlags struct {
-		url     string        // REST endpoint URL
-		token   string        // Bearer Token
-		json    bool          // Print JSON response to stdout
-		debug   bool          // Print request/response debug to stderr
-		timeout time.Duration // Client timeout
+		url      string        // REST endpoint URL
+		token    string        // Bearer Token
+		insecure bool          // Whether to disable https TLS validation
+		json     bool          // Print JSON response to stdout
+		debug    bool          // Print request/response debug to stderr
+		timeout  time.Duration // Client timeout
 	}
 
 	// Top-level command
@@ -57,6 +58,7 @@ var (
 			// Client initialization:
 			client = camToken.NewClient(
 				clccam.HostURL(rootFlags.url),
+				clccam.InsecureTLS(rootFlags.insecure),
 				clccam.Retryer(3, 1*time.Second, rootFlags.timeout),
 				clccam.Context(context.Background()),
 				clccam.Debug(rootFlags.debug),
@@ -67,7 +69,10 @@ var (
 )
 
 func init() {
-	var endpointUrl = "cam.ctl.io" // Default endpoint URL
+	var (
+		endpointUrl = "cam.ctl.io"                        // Default endpoint URL
+		disableTls  = os.Getenv("CAM_INSECURE_TLS") != "" // Whether to disable TLS
+	)
 
 	if u := os.Getenv("CAM_URL"); u != "" {
 		endpointUrl = u
@@ -76,6 +81,7 @@ func init() {
 	Root.PersistentFlags().StringVarP(&rootFlags.token, "token", "t", os.Getenv("CAM_TOKEN"), "Path or contents of CAM token")
 	Root.PersistentFlags().StringVarP(&rootFlags.url, "url", "u", endpointUrl, "REST API endpoint URL")
 	Root.PersistentFlags().BoolVarP(&rootFlags.debug, "debug", "d", false, "Print request/response debug output to stderr")
+	Root.PersistentFlags().BoolVar(&rootFlags.insecure, "insecure", disableTls, "Disable TLS validation (use with caution)")
 	Root.PersistentFlags().BoolVar(&rootFlags.json, "json", false, "Print JSON response to stdout")
 	Root.PersistentFlags().DurationVar(&rootFlags.timeout, "timeout", 180*time.Second, "Client default timeout")
 }

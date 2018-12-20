@@ -6,6 +6,7 @@ package clccam
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"net/url"
 	"strings"
@@ -39,7 +40,7 @@ func HostURL(host string) ClientOption {
 func Retryer(maxRetries int, stepDelay, maxTimeout time.Duration) ClientOption {
 	return func(r *Client) {
 		r.client.Transport = rehttp.NewTransport(
-			nil, // use http.DefaultTransport
+			r.client.Transport, // Wrap existing transport
 			rehttp.RetryFn(func(at rehttp.Attempt) bool {
 				if at.Index < maxRetries {
 					if at.Response == nil {
@@ -48,8 +49,16 @@ func Retryer(maxRetries int, stepDelay, maxTimeout time.Duration) ClientOption {
 						return true
 					}
 					switch at.Response.StatusCode {
-					// Request timeout, server error, bad gateway, service unavailable, gateway timeout
-					case 408, 500, 502, 503, 504:
+					case http.StatusRequestTimeout:
+						fallthrough
+					case http.StatusInternalServerError:
+						fallthrough
+					case http.StatusBadGateway:
+						fallthrough
+					case http.StatusServiceUnavailable:
+						fallthrough
+					case http.StatusGatewayTimeout:
+
 						logger.Warnf("%s %s returned %q - retry #%d",
 							at.Request.Method, at.Request.URL.Path, at.Response.Status, at.Index+1)
 						return true
@@ -83,6 +92,19 @@ func Debug(enabled bool) ClientOption {
 func JsonResponse(enabled bool) ClientOption {
 	return func(r *Client) {
 		r.jsonResponse = enabled
+	}
+}
+
+// InsecureTLS disables SSL certificate validation. Use with caution.
+func InsecureTLS(enable bool) ClientOption {
+	return func(r *Client) {
+		if tr, ok := r.client.Transport.(*http.Transport); !ok {
+			logger.Fatalf("unable to access http client transport attributes - not using http.Transport?")
+		} else if tr.TLSClientConfig != nil {
+			tr.TLSClientConfig.InsecureSkipVerify = enable
+		} else {
+			tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: enable}
+		}
 	}
 }
 
