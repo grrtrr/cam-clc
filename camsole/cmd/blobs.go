@@ -9,15 +9,9 @@ import (
 )
 
 var (
-	cmdBlobs = &cobra.Command{ // Top-level command
-		Use:     "blob",
-		Aliases: []string{"prov"},
-		Short:   "Manage providers",
-	}
-
 	// Upload the contents of a file as a new blob
 	blobAdd = &cobra.Command{
-		Use:     "add  </path/to/file>",
+		Use:     "blob  </path/to/file>",
 		Aliases: []string{"upload", "up"},
 		Short:   "Upload a new file as a blob",
 		PreRunE: checkArgs(1, "Need a file name"),
@@ -38,6 +32,5 @@ var (
 )
 
 func init() {
-	cmdBlobs.AddCommand(blobAdd)
-	Root.AddCommand(cmdBlobs)
+	Root.AddCommand(blobAdd)
 }

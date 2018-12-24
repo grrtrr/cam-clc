@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 	"time"
@@ -81,7 +82,18 @@ func init() {
 	Root.PersistentFlags().StringVarP(&rootFlags.token, "token", "t", os.Getenv("CAM_TOKEN"), "Path or contents of CAM token")
 	Root.PersistentFlags().StringVarP(&rootFlags.url, "url", "u", endpointUrl, "REST API endpoint URL")
 	Root.PersistentFlags().BoolVarP(&rootFlags.debug, "debug", "d", false, "Print request/response debug output to stderr")
-	Root.PersistentFlags().BoolVar(&rootFlags.insecure, "insecure", disableTls, "Disable TLS validation (use with caution)")
+	Root.PersistentFlags().BoolVar(&rootFlags.insecure, "insecure", disableTls, "Disable TLS validation")
 	Root.PersistentFlags().BoolVar(&rootFlags.json, "json", false, "Print JSON response to stdout")
 	Root.PersistentFlags().DurationVar(&rootFlags.timeout, "timeout", 180*time.Second, "Client default timeout")
+
+	// Improve help menu
+	if f := Root.PersistentFlags().Lookup("insecure"); disableTls {
+		f.DefValue = "*enabled*"
+	} else {
+		f.DefValue = "off - use with caution"
+	}
+	if f := Root.PersistentFlags().Lookup("token"); os.Getenv("CAM_TOKEN") != "" {
+		f.DefValue = fmt.Sprintf("%9.9s...", f.DefValue)
+	}
+	Root.PersistentFlags().Lookup("timeout").Hidden = true
 }

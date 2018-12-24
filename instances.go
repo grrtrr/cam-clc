@@ -180,8 +180,10 @@ type MachineAddress struct {
 }
 
 func (m MachineAddress) String() string {
-	if m.Public != nil {
-		return fmt.Sprintf("%s (%s)", m.Public, m.Private)
+	if m.Public != nil && *m.Public != "" {
+		return fmt.Sprintf("%s (%s)", *m.Public, m.Private)
+	} else if m.Private == "" {
+		return "n/a"
 	}
 	return m.Private
 }

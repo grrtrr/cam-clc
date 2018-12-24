@@ -412,7 +412,7 @@ func printInstances(instances []clccam.Instance) {
 				machines = append(machines, m.Name)
 			}
 			table.Append([]string{
-				i.Name,
+				fmt.Sprintf("%20.20s", i.Name),
 				i.ID,
 				strings.Join(machines, ", "),
 				i.Service.ID,
