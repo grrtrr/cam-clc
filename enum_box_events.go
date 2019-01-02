@@ -34,11 +34,23 @@ const (
 	// Stopping the box
 	BoxEvent_Stop
 
+	// After stopping the box
+	BoxEvent_PostStop
+
 	// Before disposing the box
 	BoxEvent_PreDispose
 
 	// Disposing the box
 	BoxEvent_Dispose
+
+	// After disposing the box
+	BoxEvent_PostDispose
+
+	// Collecting bindings?
+	BoxEvent_CollectBindings
+
+	// Run the execute_patch operation (upload script with variables expanded from request)
+	BoxEvent_Patch
 )
 
 // Implements encoding.TextMarshaler
@@ -60,10 +72,18 @@ func (b BoxEvent) MarshalText() ([]byte, error) {
 		return []byte("pre_stop"), nil
 	case BoxEvent_Stop:
 		return []byte("stop"), nil
+	case BoxEvent_PostStop:
+		return []byte("post_stop"), nil
 	case BoxEvent_PreDispose:
 		return []byte("pre_dispose"), nil
 	case BoxEvent_Dispose:
 		return []byte("dispose"), nil
+	case BoxEvent_PostDispose:
+		return []byte("post_dispose"), nil
+	case BoxEvent_CollectBindings:
+		return []byte("collect_bindings"), nil
+	case BoxEvent_Patch:
+		return []byte("patch"), nil
 	}
 	return nil, fmt.Errorf("invalid BoxEvent %d", b)
 }
@@ -96,10 +116,18 @@ func (b *BoxEvent) UnmarshalText(data []byte) error {
 		*b = BoxEvent_PreStop
 	case "stop":
 		*b = BoxEvent_Stop
+	case "post_stop":
+		*b = BoxEvent_PostStop
 	case "pre_dispose":
 		*b = BoxEvent_PreDispose
 	case "dispose":
 		*b = BoxEvent_Dispose
+	case "post_dispose":
+		*b = BoxEvent_PostDispose
+	case "collect_bindings":
+		*b = BoxEvent_CollectBindings
+	case "patch":
+		*b = BoxEvent_Patch
 	default:
 		return fmt.Errorf("invalid BoxEvent %q", string(data))
 	}
@@ -107,8 +135,8 @@ func (b *BoxEvent) UnmarshalText(data []byte) error {
 }
 
 // Implements flag.Value
-func (b *BoxEvent) Set(s string) error {
-	return b.UnmarshalText([]byte(s))
+func (b *BoxEvent) Set(value string) error {
+	return b.UnmarshalText([]byte(value))
 }
 
 // Implements pflag.Value (superset of flag.Value)
@@ -129,7 +157,7 @@ func BoxEventStrings(vals ...BoxEvent) (ret []string) {
 		}
 		return ret
 	}
-	return []string{"pre_configure", "configure", "pre_install", "install", "pre_start", "start", "pre_stop", "stop", "pre_dispose", "dispose"}
+	return []string{"pre_configure", "configure", "pre_install", "install", "pre_start", "start", "pre_stop", "stop", "post_stop", "pre_dispose", "dispose", "post_dispose", "collect_bindings", "patch"}
 }
 
 // Implements database/sql/driver.Valuer

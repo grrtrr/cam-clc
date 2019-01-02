@@ -60,7 +60,7 @@ var (
 		},
 	}
 
-	// List one or more instances (VMs)
+	// Get the service of an instance
 	instanceGetService = &cobra.Command{
 		Use:     "service  <instanceId>",
 		Aliases: []string{"s", "srv"},
@@ -87,7 +87,7 @@ var (
 						return srv.StateHistory[i].Started.Time.Before(srv.StateHistory[j].Completed.Time)
 					})
 
-					table.SetHeader([]string{"State", "Started", "Completed"})
+					table.SetHeader([]string{"State", "Operation", "Started", "Completed"})
 					for _, s := range srv.StateHistory {
 						var completed = "n/a"
 
@@ -95,7 +95,12 @@ var (
 							completed = fmt.Sprintf("%s after start",
 								s.Completed.Time.Sub(s.Started.Time).Round(time.Second))
 						}
-						table.Append([]string{s.State, humanize.Time(s.Started.Time.Local()), completed})
+						table.Append([]string{
+							s.State,
+							srv.Operation.String(),
+							humanize.Time(s.Started.Time.Local()),
+							completed,
+						})
 					}
 					table.Render()
 				} else {
@@ -112,19 +117,25 @@ var (
 
 					fmt.Printf("\n%s (Virtual) Machines:\n", srv.ID)
 
-					table.SetHeader([]string{"Name", "IP", "State", "Support ID", "Agent Ping", "Agent Close"})
+					table.SetHeader([]string{"Host", "Provider ID", "IP", "State", "Agent Ping", "Agent Close"})
 					for _, m := range srv.Machines {
-						var lastClose = "n/a"
+						var (
+							lastClose = "n/a"
+							host      = m.Name
+						)
 
 						if t := m.LastAgentClose.Time.Local(); !t.IsZero() {
 							lastClose = humanize.Time(t)
 						}
+						if h := m.Hostname; h != "" {
+							host = h
+						}
 
 						table.Append([]string{
-							m.Name,
+							host,
+							m.ExternalID,
 							m.Address.String(),
 							m.State.String(),
-							m.SupportID,
 							humanize.Time(m.LastAgentPing.Time.Local()),
 							lastClose,
 						})
@@ -176,9 +187,14 @@ var (
 				fmt.Println("No information on operations.")
 			} else {
 				for _, op := range ops {
-					fmt.Printf("%s %s => %s (%s) on workspace %s:\n",
-						op.Created.Time.Local().Format("_2 Jan 15:04 MST"), op.Operation,
-						op.State, op.InstanceState, op.Workspace)
+					var state = op.State.String()
+
+					if op.InstanceState != op.State {
+						state = fmt.Sprintf("%s (instance state %s)", op.State, op.InstanceState)
+					}
+					fmt.Printf("%s %s => %s on workspace %s:\n",
+						op.Created.Time.Local().Format("_2 Jan 15:04 MST"),
+						op.Operation, state, op.Workspace)
 					printActivities(op.Activity)
 				}
 			}
@@ -187,13 +203,30 @@ var (
 
 	// Retrieve machine logs
 	instanceGetLogs = &cobra.Command{
-		Use:     "logs  <instanceId> <machineId>",
-		Aliases: []string{"get-machine-logs"},
+		Use:     "logs  <instanceId> [<machineId>]",
+		Aliases: []string{"get-machine-logs", "log"},
 		Short:   "Retrieve VM log output",
-		PreRunE: checkArgs(2, "Need an instance ID and a machine ID"),
+		PreRunE: checkAtLeastArgs(1, "Need an instance ID and optionally a machine ID"),
 		Run: func(cmd *cobra.Command, args []string) {
-			if logs, err := client.GetInstanceMachineLogs(args[0], args[1]); err != nil {
-				die("failed to query instance %s activities: %s", args[0], err)
+			var (
+				instanceId = args[0]
+				machine    string
+			)
+			if len(args) == 2 {
+				machine = args[1]
+			} else {
+				if instance, err := client.GetInstance(instanceId); err != nil {
+					die("failed to query %s machines: %s", instanceId, err)
+				} else if m := instance.Service.Machines; len(m) == 0 {
+					fmt.Println("No machines available")
+				} else if len(m) > 1 {
+					die("unable to retrieve logs: %s has more than 1 machine", instanceId)
+				} else {
+					machine = m[0].Name
+				}
+			}
+			if logs, err := client.GetInstanceMachineLogs(instanceId, machine); err != nil {
+				die("failed to query instance %s activities: %s", instanceId, err)
 			} else if cmd.Flags().Lookup("json").Value.String() == "true" {
 			} else if len(logs) == 0 {
 				fmt.Println("No log information.")
@@ -409,10 +442,10 @@ func printInstances(instances []clccam.Instance) {
 			var machines []string
 
 			for _, m := range i.Service.Machines {
-				machines = append(machines, m.Name)
+				machines = append(machines, fmt.Sprintf("%25.25s", m.Name))
 			}
 			table.Append([]string{
-				fmt.Sprintf("%20.20s", i.Name),
+				fmt.Sprintf("%25.25s", i.Name),
 				i.ID,
 				strings.Join(machines, ", "),
 				i.Service.ID,
@@ -435,13 +468,16 @@ func printActivities(activities []clccam.InstanceActivity) {
 
 		table.SetAutoFormatHeaders(false)
 		table.SetAlignment(tablewriter.ALIGN_LEFT)
+		table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_RIGHT, tablewriter.ALIGN_LEFT})
 		table.SetAutoWrapText(false)
 
-		table.SetHeader([]string{"Time", "Text"})
+		table.SetHeader([]string{"Time", "Text", "Level", "Event"})
 		for _, a := range activities {
 			table.Append([]string{
-				a.Created.Time.Local().Format("_2 Jan 15:04:05 MST"),
+				a.Created.Time.Local().Format("_2 Jan  15:04:05.0"),
 				fmt.Sprintf("%-.100s", a.Text), // Chop of at 100 characters
+				a.Level,
+				a.Event.String(),
 			})
 		}
 		table.Render()
