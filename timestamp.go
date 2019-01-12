@@ -23,9 +23,26 @@ func (t *Timestamp) MarshalJSON() (text []byte, err error) {
 
 // Implements json.Unmarshaler
 func (t *Timestamp) UnmarshalJSON(b []byte) error {
-	v, err := time.Parse(ts_format, string(bytes.Trim(b, `"`)))
+	var ts = string(bytes.Trim(b, `"`))
+
+	v, err := time.Parse(ts_format, ts)
 	if err != nil {
-		return errors.Errorf("invalid timestamp %q", string(b))
+		// Note: sometimes these alternative formats are used:
+		// a) "2019-01-12T00:15:09.026751Z"
+		// b) "2019-01-12T00:39:30.80067Z"
+		// c) "2019-01-12T00:59:37.7309Z"
+		v, err = time.Parse("2006-01-02T15:04:05.000000Z", ts)
+		if err != nil {
+			v, err = time.Parse("2006-01-02T15:04:05.00000Z", ts)
+			if err != nil {
+				v, err = time.Parse("2006-01-02T15:04:05.0000Z", ts)
+				//if err != nil {
+				//	v, err = time.Parse("2006-01-02T15:04:05.000Z", ts)
+			}
+		}
+		if err != nil {
+			return errors.Errorf("invalid timestamp %s", string(b))
+		}
 	}
 	t.Time = v
 	return nil

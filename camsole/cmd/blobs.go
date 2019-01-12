@@ -26,6 +26,7 @@ var (
 			if err != nil {
 				die("failed to upload %s: %s", fileName, err)
 			}
+			fmt.Printf("Blob UUID:    %s\n", res.Url)
 			fmt.Printf("Download URL: https://%s%s\n", strings.TrimRight(rootFlags.url, "/"), res.Url)
 		},
 	}

@@ -2,12 +2,19 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
 	"sort"
+	"strings"
+	"time"
 
 	humanize "github.com/dustin/go-humanize"
+	"github.com/ghodss/yaml"
 	"github.com/grrtrr/clccam"
 	"github.com/olekukonko/tablewriter"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +27,7 @@ var (
 	// boxList lists one or more boxes
 	boxList = &cobra.Command{
 		Use:     "ls  [boxId, ...]",
-		Aliases: []string{"list", "show"},
+		Aliases: []string{"list", "show", "get"},
 		Short:   "List box(es)",
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
@@ -37,6 +44,26 @@ var (
 						listBoxes([]clccam.Box{box})
 					}
 				}
+			}
+		},
+	}
+
+	// boxImport imports a Box Directory containing box files as a new box.
+	boxImportFlags struct {
+		AsDraft bool   // Whether to bypass the normal import process
+		Owner   string // Override the box owner
+	}
+	boxImport = &cobra.Command{
+		Use:     "import </path/to/box/directory>",
+		Aliases: []string{"imp", "up", "upload"},
+		Short:   "Import box from directory",
+		PreRunE: checkArgs(1, "Need a box directory"),
+		Run: func(cmd *cobra.Command, args []string) {
+			res, err := importBox(args[0], boxImportFlags.Owner, boxImportFlags.AsDraft)
+			if err != nil {
+				die("%s", err)
+			} else if cmd.Flags().Lookup("json").Value.String() != "true" {
+				fmt.Printf("Updloaded box %s to %v\n", res.ID, res.URI)
 			}
 		},
 	}
@@ -173,14 +200,24 @@ func listBoxes(boxes []clccam.Box) {
 		table.SetHeader([]string{
 			"Name", "ID", "Owner", "Visibility", "Created", "Updated",
 		})
-
 		for _, b := range boxes {
+			var created = "Not set"
+			var updated = "Not set"
+
+			if !b.Created.IsZero() {
+				created = humanize.Time(b.Created.Local())
+			}
+			if !b.Updated.IsZero() {
+				updated = humanize.Time(b.Updated.Local())
+			}
+
 			table.Append([]string{
 				b.Name,
 				b.ID.String(),
 				b.Owner,
 				b.Visibility.String(),
-				humanize.Time(b.Created.Local()), humanize.Time(b.Updated.Local()),
+				created,
+				updated,
 			})
 		}
 		table.Render()
@@ -188,6 +225,157 @@ func listBoxes(boxes []clccam.Box) {
 }
 
 func init() {
-	cmdBoxes.AddCommand(boxList, boxStack, boxVersions, boxDiff, boxBindings, boxDelete)
+	boxImport.Flags().BoolVar(&boxImportFlags.AsDraft, "as-draft", true, "Upload box as draft")
+	boxImport.Flags().StringVarP(&boxImportFlags.Owner, "owner", "o", "", "If set, overrides the box owner")
+
+	cmdBoxes.AddCommand(boxList, boxStack, boxVersions, boxDiff, boxBindings, boxImport, boxDelete)
 	Root.AddCommand(cmdBoxes)
+}
+
+// importBox processes a box directory @boxDir and tries to import this as a box.
+// @owner:   override box owner
+// @asDraft: submit box as draft
+func importBox(boxDir, owner string, asDraft bool) (*clccam.Box, error) {
+	var (
+		box        clccam.Box
+		existingId string // controls upload: create new or replace
+	)
+
+	if fi, err := os.Stat(boxDir); err != nil {
+		return nil, err
+	} else if !fi.IsDir() {
+		return nil, errors.Errorf("not a directory: %q", boxDir)
+	}
+
+	if content, err := ioutil.ReadFile(path.Join(boxDir, "box.yaml")); err != nil {
+		return nil, errors.Errorf("unable to read box.yaml: %s", err)
+	} else if err = yaml.Unmarshal(content, &box); err != nil {
+		return nil, errors.Wrapf(err, "failed to deserialize box.yaml")
+	}
+
+	if asDraft && uuid.Equal(uuid.Nil, box.ID) {
+		return nil, errors.Errorf("box without ID can not be uploaded as draft")
+	}
+
+	// Variables loaded from file, identified by a 'File' type.
+	// FIXME: these are not yet supported, hence returning an error here.
+	for _, v := range box.Variables {
+		if v.Type == "File" {
+			// FIXME: there should be file upload instead here.
+			return nil, errors.Errorf("variable %q type %q not yet supported", v.Name, v.Type)
+		}
+	}
+
+	// See if it replaces an existing box of the same ID.
+	if !uuid.Equal(uuid.Nil, box.ID) {
+		if current, err := client.GetBox(box.ID.String()); err != nil {
+			fmt.Fprintf(os.Stderr, "Note: unable to load existing box %s\n", box.ID)
+		} else {
+			existingId = box.ID.String()
+
+			// Copy pre-existing configuration.
+			box.Owner = current.Owner
+
+			// Do not copy members, sometimes they contain invalid entries.
+			// box.Members = current.Members
+			if box.Organization == "" {
+				box.Organization = current.Organization
+			}
+
+			if !asDraft && box.BoxVersion == nil {
+				if current.BoxVersion == nil {
+					box.BoxVersion = &clccam.BoxVersion{
+						Box: box.ID,
+					}
+				} else {
+					box.BoxVersion = current.BoxVersion
+				}
+				box.BoxVersion.Description = "Version created using a kind of ebcli"
+			}
+		}
+	}
+
+	// Override owner if present
+	if owner != "" {
+		box.Owner = owner
+	}
+
+	// Schema: default to Script Box if not set.
+	if box.Schema.IsZero() {
+		s, err := clccam.UriFromString(clccam.ScriptBoxSchema)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to set Script Box schema")
+		}
+		box.Schema = *s
+	}
+
+	// For Script Box types, collect the event scripts.
+	if box.Schema.String() == clccam.ScriptBoxSchema {
+
+		box.Events = make(map[clccam.BoxEvent]clccam.Event)
+
+		for _, evtName := range clccam.BoxEventStrings() {
+			var evtPath = path.Join(boxDir, "events", evtName)
+			var evt clccam.BoxEvent
+
+			if _, err := os.Stat(evtPath); err == nil {
+				if err := evt.Set(evtName); err != nil {
+					return nil, errors.Wrapf(err, "unable to set %s event", evtName)
+				}
+				if b, err := ioutil.ReadFile(evtPath); err != nil {
+					return nil, errors.Errorf("unable to read %q event file: %s", evtName, err)
+				} else if res, err := client.UploadFile(evtName, b); err != nil {
+					return nil, errors.Errorf("failed to upload %q event file: %s", evtName, err)
+				} else {
+					box.Events[evt] = clccam.Event{BlobResponse: res}
+				}
+			}
+		}
+	}
+
+	// Icon files
+	if !box.IconMetadata.Image.IsZero() {
+		if p := box.IconMetadata.Image.Path; !strings.HasPrefix(p, "images/") {
+			// FIXME: if uploading a new image under a different name from the one
+			//        already recorded in the DB, the file name is not updated below.
+			//        This is slightly different from the ebcli code.
+			if b, err := ioutil.ReadFile(path.Join(boxDir, p)); err != nil {
+				return nil, errors.Errorf("unable to read icon file %q: %s", p, err)
+			} else if res, err := client.UploadFile(path.Base(p), b); err != nil {
+				return nil, errors.Errorf("failed to upload icon file %q: %s", p, err)
+			} else {
+				box.IconMetadata.Image = res.Url
+			}
+		}
+	} else if box.Icon != "" {
+		if b, err := ioutil.ReadFile(path.Join(boxDir, box.Icon)); err != nil {
+			return nil, errors.Errorf("unable to read icon file %q: %s", box.Icon, err)
+		} else if res, err := client.UploadFile(path.Base(box.Icon), b); err != nil {
+			return nil, errors.Errorf("failed to upload icon file %q: %s", box.Icon, err)
+		} else {
+			box.Icon = res.Url.String()
+		}
+	}
+
+	// readme.MD file
+	if _, err := os.Stat(path.Join(boxDir, clccam.ReadmeName)); err == nil {
+		if b, err := ioutil.ReadFile(path.Join(boxDir, clccam.ReadmeName)); err != nil {
+			return nil, errors.Errorf("unable to read 'read-me' file: %s", err)
+		} else if box.Readme, err = client.UploadFile(clccam.ReadmeName, b); err != nil {
+			return nil, errors.Errorf("failed to upload readme file: %s", err)
+		}
+	}
+
+	// Upload
+	if box.BoxVersion != nil {
+		fmt.Println("WARNING: box version handling is not fully functional yet")
+		if !uuid.Equal(box.BoxVersion.Box, box.ID) {
+			return client.UploadBox(&box, box.BoxVersion.Box.String())
+		}
+	} else {
+		box.Created = clccam.Timestamp{Time: time.Now().UTC()}
+	}
+
+	return client.UploadBox(&box, existingId)
+
 }

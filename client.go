@@ -91,15 +91,13 @@ func (c *Client) Get(path string, resModel interface{}) error {
 // If @err == nil, fills in @resModel, else returns error.
 func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{}, opts ...RequestOption) error {
 	var (
-		url     = fmt.Sprintf("%s/%s", c.baseURL, strings.TrimLeft(urlPath, "/"))
-		reqBody io.Reader
+		url         = fmt.Sprintf("%s/%s", c.baseURL, strings.TrimLeft(urlPath, "/"))
+		contentType string // Request content type
+		reqBody     io.Reader
 	)
 
 	if reqModel != nil {
-		var (
-			body        []byte
-			contentType string
-		)
+		var body []byte
 
 		if b, ok := reqModel.([]byte); ok {
 			body = b
@@ -143,7 +141,14 @@ func (c *Client) getResponse(urlPath, verb string, reqModel, resModel interface{
 	req.Header.Set("Accept", "application/json")
 
 	if c.requestDebug {
-		reqDump, _ := httputil.DumpRequest(req, true)
+		var reqDump []byte
+
+		switch {
+		case strings.HasPrefix(contentType, "image"):
+			reqDump, _ = httputil.DumpRequest(req, false)
+		default:
+			reqDump, _ = httputil.DumpRequest(req, true)
+		}
 		logger.Debugf("%s", reqDump)
 	}
 
