@@ -172,15 +172,18 @@ var (
 
 	// boxDelete removes a box
 	boxDelete = &cobra.Command{
-		Use:     "rm  boxId",
+		Use:     "rm  boxId [boxId1...]",
 		Aliases: []string{"delete", "get-rid-of"},
 		Short:   "Remove box",
-		PreRunE: checkArgs(1, "Need a box ID"),
+		PreRunE: checkAtLeastArgs(1, "Need at least one box ID"),
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := client.DeleteBox(args[0]); err != nil {
-				die("failed to delete box %s: %s", args[0], err)
+			for _, arg := range args {
+				if err := client.DeleteBox(arg); err != nil {
+					fmt.Printf("FATAL: failed to delete box %s: %s\n", arg, err)
+				} else {
+					fmt.Printf("Deleted box %s.\n", arg)
+				}
 			}
-			fmt.Printf("Deleted box %s.\n", args[0])
 		},
 	}
 )
@@ -334,7 +337,7 @@ func importBox(boxDir, owner string, asDraft bool) (*clccam.Box, error) {
 	}
 
 	// Icon files
-	if !box.IconMetadata.Image.IsZero() {
+	if box.IconMetadata != nil && !box.IconMetadata.Image.IsZero() {
 		if p := box.IconMetadata.Image.Path; !strings.HasPrefix(p, "images/") {
 			// FIXME: if uploading a new image under a different name from the one
 			//        already recorded in the DB, the file name is not updated below.
@@ -377,5 +380,4 @@ func importBox(boxDir, owner string, asDraft bool) (*clccam.Box, error) {
 	}
 
 	return client.UploadBox(&box, existingId)
-
 }

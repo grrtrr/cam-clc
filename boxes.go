@@ -184,12 +184,8 @@ type Box struct {
 	Readme BlobResponse `json:"readme"`
 
 	// Box icon URI (these two seem to be mutually exclusive):
-	Icon         string `json:"icon,omitempty"`
-	IconMetadata struct {
-		Border string `json:"border"`
-		Fill   string `json:"fill"`
-		Image  URI    `json:"image"`
-	} `json:"icon_metadata"`
+	Icon         string        `json:"icon,omitempty"`
+	IconMetadata *IconMetadata `json:"icon_metadata,omitempty"`
 
 	// More html ...
 	ActionButton *ActionButton `json:"action_button,omitempty"`
@@ -198,6 +194,12 @@ type Box struct {
 // Miscellaneous box sub-structs
 type LifeSpan struct {
 	Operation string `json:"operation"` // e.g. "none"
+}
+
+type IconMetadata struct {
+	Border string `json:"border"`
+	Fill   string `json:"fill"`
+	Image  URI    `json:"image"`
 }
 
 type ActionButton struct {
