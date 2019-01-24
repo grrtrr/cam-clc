@@ -173,7 +173,7 @@ var (
 	// boxDelete removes a box
 	boxDelete = &cobra.Command{
 		Use:     "rm  boxId [boxId1...]",
-		Aliases: []string{"delete", "get-rid-of"},
+		Aliases: []string{"delete", "del", "remove"},
 		Short:   "Remove box",
 		PreRunE: checkAtLeastArgs(1, "Need at least one box ID"),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -272,7 +272,7 @@ func importBox(boxDir, owner string, asDraft bool) (*clccam.Box, error) {
 	// See if it replaces an existing box of the same ID.
 	if !uuid.Equal(uuid.Nil, box.ID) {
 		if current, err := client.GetBox(box.ID.String()); err != nil {
-			fmt.Fprintf(os.Stderr, "Note: unable to load existing box %s\n", box.ID)
+			/* Ignore error here. Call is only used to see if Box already exists. */
 		} else {
 			existingId = box.ID.String()
 

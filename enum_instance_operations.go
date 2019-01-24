@@ -31,11 +31,29 @@ const (
 	// Terminate
 	InstanceOp_terminate
 
-	// Terminate Service
+	// Terminate service
 	InstanceOp_terminate_service
 
 	// Snapshot
 	InstanceOp_snapshot
+
+	// Run a form of script on the instance
+	InstanceOp_execute
+
+	// Prepare migration infrastructure (VMs, PGs etc)
+	InstanceOp_prepare_migration
+
+	// Perform migration test-failover
+	InstanceOp_test_migration
+
+	// Perform actual migration
+	InstanceOp_run_migration
+
+	// Retry migration (or a migration stage)
+	InstanceOp_retry_migration
+
+	// Remove migration infrastructure
+	InstanceOp_cleanup_migration
 )
 
 // Implements encoding.TextMarshaler
@@ -59,6 +77,18 @@ func (i InstanceOp) MarshalText() ([]byte, error) {
 		return []byte("terminate_service"), nil
 	case InstanceOp_snapshot:
 		return []byte("snapshot"), nil
+	case InstanceOp_execute:
+		return []byte("execute"), nil
+	case InstanceOp_prepare_migration:
+		return []byte("prepare_migration"), nil
+	case InstanceOp_test_migration:
+		return []byte("test_migration"), nil
+	case InstanceOp_run_migration:
+		return []byte("run_migration"), nil
+	case InstanceOp_retry_migration:
+		return []byte("retry_migration"), nil
+	case InstanceOp_cleanup_migration:
+		return []byte("cleanup_migration"), nil
 	}
 	return nil, fmt.Errorf("invalid InstanceOp %d", i)
 }
@@ -93,6 +123,18 @@ func (i *InstanceOp) UnmarshalText(data []byte) error {
 		*i = InstanceOp_terminate_service
 	case "snapshot":
 		*i = InstanceOp_snapshot
+	case "execute":
+		*i = InstanceOp_execute
+	case "prepare_migration":
+		*i = InstanceOp_prepare_migration
+	case "test_migration":
+		*i = InstanceOp_test_migration
+	case "run_migration":
+		*i = InstanceOp_run_migration
+	case "retry_migration":
+		*i = InstanceOp_retry_migration
+	case "cleanup_migration":
+		*i = InstanceOp_cleanup_migration
 	default:
 		return fmt.Errorf("invalid InstanceOp %q", string(data))
 	}
@@ -100,8 +142,8 @@ func (i *InstanceOp) UnmarshalText(data []byte) error {
 }
 
 // Implements flag.Value
-func (i *InstanceOp) Set(s string) error {
-	return i.UnmarshalText([]byte(s))
+func (i *InstanceOp) Set(value string) error {
+	return i.UnmarshalText([]byte(value))
 }
 
 // Implements pflag.Value (superset of flag.Value)
@@ -122,7 +164,7 @@ func InstanceOpStrings(vals ...InstanceOp) (ret []string) {
 		}
 		return ret
 	}
-	return []string{"deploy", "shutdown", "shutdown_service", "poweron", "reinstall", "reconfigure", "terminate", "terminate_service", "snapshot"}
+	return []string{"deploy", "shutdown", "shutdown_service", "poweron", "reinstall", "reconfigure", "terminate", "terminate_service", "snapshot", "execute", "prepare_migration", "test_migration", "run_migration", "retry_migration", "cleanup_migration"}
 }
 
 // Implements database/sql/driver.Valuer

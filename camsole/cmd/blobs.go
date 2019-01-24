@@ -11,23 +11,27 @@ import (
 var (
 	// Upload the contents of a file as a new blob
 	blobAdd = &cobra.Command{
-		Use:     "blob  </path/to/file>",
+		Use:     "blob  /path/to/file> [/path/to/another/file]",
 		Aliases: []string{"upload", "up"},
 		Short:   "Upload a new file as a blob",
-		PreRunE: checkArgs(1, "Need a file name"),
+		PreRunE: checkAtLeastArgs(1, "Need at least 1 file name"),
 		Run: func(cmd *cobra.Command, args []string) {
-			var fileName = args[0]
+			for i, fileName := range args {
 
-			b, err := ioutil.ReadFile(fileName)
-			if err != nil {
-				die("failed to read %s: %s", fileName, err)
+				b, err := ioutil.ReadFile(fileName)
+				if err != nil {
+					die("failed to read %s: %s", fileName, err)
+				}
+				res, err := client.UploadFile(fileName, b)
+				if err != nil {
+					die("failed to upload %s: %s", fileName, err)
+				}
+				if i > 0 {
+					fmt.Println("")
+				}
+				fmt.Printf("UUID:  %s\n", res.Url)
+				fmt.Printf("URL:   https://%s%s\n", strings.TrimRight(rootFlags.url, "/"), res.Url)
 			}
-			res, err := client.UploadFile(fileName, b)
-			if err != nil {
-				die("failed to upload %s: %s", fileName, err)
-			}
-			fmt.Printf("Blob UUID:    %s\n", res.Url)
-			fmt.Printf("Download URL: https://%s%s\n", strings.TrimRight(rootFlags.url, "/"), res.Url)
 		},
 	}
 )

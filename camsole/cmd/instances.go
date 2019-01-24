@@ -63,15 +63,15 @@ var (
 	// Get the service of an instance
 	instanceGetService = &cobra.Command{
 		Use:     "service  <instanceId>",
-		Aliases: []string{"s", "srv"},
+		Aliases: []string{"s", "ser", "serv", "srv"},
 		Short:   "List the instance service",
 		PreRunE: checkArgs(1, "Need an instance ID"),
 		Run: func(cmd *cobra.Command, args []string) {
 			if srv, err := client.GetInstanceService(args[0]); err != nil {
 				die("failed to query instance %s service: %s", args[0], err)
 			} else if cmd.Flags().Lookup("json").Value.String() != "true" {
-				fmt.Printf("%s/%s %s service %s, operation %s/%s:\n",
-					srv.ClcAlias, srv.Organization, srv.Type, srv.ID, srv.Operation, srv.State)
+				fmt.Printf("%s service %s, operation %s/%s:\n",
+					srv.Type, srv.ID, srv.Operation, srv.State)
 
 				// 1. State history
 				if len(srv.StateHistory) > 0 {
@@ -115,7 +115,7 @@ var (
 					table.SetAlignment(tablewriter.ALIGN_LEFT)
 					table.SetAutoWrapText(true)
 
-					fmt.Printf("\n%s (Virtual) Machines:\n", srv.ID)
+					fmt.Printf("\n%s Virtual Machines:\n", srv.ID)
 
 					table.SetHeader([]string{"Host", "Provider ID", "IP", "State", "Agent Ping", "Agent Close"})
 					for _, m := range srv.Machines {
@@ -218,7 +218,7 @@ var (
 				if instance, err := client.GetInstance(instanceId); err != nil {
 					die("failed to query %s machines: %s", instanceId, err)
 				} else if m := instance.Service.Machines; len(m) == 0 {
-					fmt.Println("No machines available")
+					fmt.Println("No machines available.")
 				} else if len(m) > 1 {
 					die("unable to retrieve logs: %s has more than 1 machine", instanceId)
 				} else {
@@ -438,6 +438,12 @@ func printInstances(instances []clccam.Instance) {
 		table.SetHeader([]string{
 			"Name", "ID", "Machines", "Service", "Box", "Updated", "Operation", "State",
 		})
+
+		// Order by updated time
+		sort.Slice(instances, func(i, j int) bool {
+			return instances[i].Updated.Time.Before(instances[j].Updated.Time)
+		})
+
 		for _, i := range instances {
 			var machines []string
 

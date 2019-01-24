@@ -146,16 +146,17 @@ type InstanceService struct {
 	Machines []struct {
 		Address        MachineAddress `json:"address"`
 		AgentVersion   semver.Version `json:"agent_version"`    // e.g. "6.11"
-		ExternalID     string         `json:"external_id"`      // e.g. "i-000727071fbfcec16"
 		Hostname       string         `json:"hostname"`         // e.g. ""
+		SupportID      string         `json:"support_id"`       // e.g. "AWSUSW29417"
+		ExternalID     string         `json:"external_id"`      // e.g. "i-000727071fbfcec16"
 		LastAgentClose Timestamp      `json:"last_agent_close"` // e.g. "2018-08-29 14:55:20.850348"
 		LastAgentPing  Timestamp      `json:"last_agent_ping"`  // e.g. "2018-08-29 14:53:39.801080"
 		Name           string         `json:"name"`             // e.g. "cms1-eb-e775t-1"
 		Schema         string         `json:"schema"`           // e.g. "http://elasticbox.net/schemas/aws/service-machine"
 		State          InstanceState  `json:"state"`            // e.g. "done"
-		SupportID      string         `json:"support_id"`       // e.g. "AWSUSW29417"
 		Token          uuid.UUID      `json:"token"`            // e.g. "b7445ed9-a4ba-4e93-9462-703ab2bd700e"
 	} `json:"machines"`
+
 	StateHistory []struct {
 		State     string    `json:"state"`     // e.g. "up"
 		Started   Timestamp `json:"started"`   // e.g. "2018-09-04 19:53:33.008055"

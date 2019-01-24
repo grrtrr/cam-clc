@@ -33,9 +33,9 @@ func (t *Timestamp) UnmarshalJSON(b []byte) error {
 		// c) "2019-01-12T00:59:37.7309Z"
 		v, err = time.Parse("2006-01-02T15:04:05.000000Z", ts)
 		if err != nil {
-			v, err = time.Parse("2006-01-02T15:04:05.00000Z", ts)
+			//		v, err = time.Parse("2006-01-02T15:04:05.00000Z", ts)
 			if err != nil {
-				v, err = time.Parse("2006-01-02T15:04:05.0000Z", ts)
+				//				v, err = time.Parse("2006-01-02T15:04:05.0000Z", ts)
 				//if err != nil {
 				//	v, err = time.Parse("2006-01-02T15:04:05.000Z", ts)
 			}

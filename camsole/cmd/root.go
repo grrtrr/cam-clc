@@ -53,7 +53,7 @@ var (
 			if cl, err := camToken.Claims(); err != nil {
 				die("token failed to decode: %s", err)
 			} else if cl.Expired() {
-				die("%s -- get a new one from https://cam.ctl.io", cl)
+				die("%s -- get a new one from %s", cl, rootFlags.url)
 			}
 
 			// Client initialization:
