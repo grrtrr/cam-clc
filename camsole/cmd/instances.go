@@ -151,7 +151,7 @@ var (
 	// Retrieve instance activities
 	instanceGetActivity = &cobra.Command{
 		Use:     "activity  <instanceId>",
-		Aliases: []string{"act"},
+		Aliases: []string{"act", "a"},
 		Short:   "Retrieve instance activity logs",
 		PreRunE: checkArgs(1, "Need an instance ID"),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -204,7 +204,7 @@ var (
 	// Retrieve machine logs
 	instanceGetLogs = &cobra.Command{
 		Use:     "logs  <instanceId> [<machineId>]",
-		Aliases: []string{"get-machine-logs", "log"},
+		Aliases: []string{"log", "l"},
 		Short:   "Retrieve VM log output",
 		PreRunE: checkAtLeastArgs(1, "Need an instance ID and optionally a machine ID"),
 		Run: func(cmd *cobra.Command, args []string) {
