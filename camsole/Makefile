@@ -4,7 +4,7 @@ WINDOWS_TARGET := $(TARGET).exe
 MAC_TARGET     := $(TARGET).mac
 
 
-.PHONY: all linux windows mac clean get-deps $(TARGET)
+.PHONY: all pack linux windows mac clean get-deps $(TARGET)
 
 linux:   $(TARGET)
 windows: $(WINDOWS_TARGET)
@@ -19,6 +19,9 @@ get-deps:
 $(TARGET): #get-deps
 	go build -o $@ .
 	strip -s $@
+
+pack: $(TARGET)
+	upx $<
 
 $(WINDOWS_TARGET): get-deps
 	GOOS=windows GOARCH=amd64 go build -o $@ .
