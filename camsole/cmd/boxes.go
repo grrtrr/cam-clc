@@ -260,15 +260,6 @@ func importBox(boxDir, owner string, asDraft bool) (*clccam.Box, error) {
 		return nil, errors.Errorf("box without ID can not be uploaded as draft")
 	}
 
-	// Variables loaded from file, identified by a 'File' type.
-	// FIXME: these are not yet supported, hence returning an error here.
-	for _, v := range box.Variables {
-		if v.Type == "File" {
-			// FIXME: there should be file upload instead here.
-			return nil, errors.Errorf("variable %q type %q not yet supported", v.Name, v.Type)
-		}
-	}
-
 	// See if it replaces an existing box of the same ID.
 	if !uuid.Equal(uuid.Nil, box.ID) {
 		if current, err := client.GetBox(box.ID.String()); err != nil {
@@ -332,6 +323,19 @@ func importBox(boxDir, owner string, asDraft bool) (*clccam.Box, error) {
 				} else {
 					box.Events[evt] = clccam.Event{BlobResponse: res}
 				}
+			}
+		}
+	}
+
+	// Variables loaded from file, identified by a 'File' type.
+	for i, v := range box.Variables {
+		if v.Type == "File" && v.Value != "" {
+			if b, err := ioutil.ReadFile(path.Join(boxDir, v.Value)); err != nil {
+				return nil, errors.Errorf("unable to read File variable %s at %s: %s", v.Name, v.Value, err)
+			} else if res, err := client.UploadFile(path.Base(v.Value), b); err != nil {
+				return nil, errors.Errorf("failed to upload File variable %s: %s", v.Name, err)
+			} else {
+				box.Variables[i].Value = res.Url.String()
 			}
 		}
 	}

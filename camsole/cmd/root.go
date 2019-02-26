@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/grrtrr/clccam"
@@ -77,6 +78,7 @@ func init() {
 
 	if u := os.Getenv("CAM_URL"); u != "" {
 		endpointUrl = u
+		disableTls = strings.HasPrefix(u, "10.") // On private subnets, disable TLS validation
 	}
 
 	Root.PersistentFlags().StringVarP(&rootFlags.token, "token", "t", os.Getenv("CAM_TOKEN"), "Path or contents of CAM token")
