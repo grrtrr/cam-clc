@@ -250,6 +250,11 @@ func importBox(boxDir, owner string, asDraft bool) (*clccam.Box, error) {
 		return nil, errors.Errorf("not a directory: %q", boxDir)
 	}
 
+	// Sometimes a 'draft' directory is inserted between the directory and its contents.
+	if _, err := os.Stat(path.Join(boxDir, "draft", "box.yaml")); err == nil {
+		boxDir = path.Join(boxDir, "draft")
+	}
+
 	if content, err := ioutil.ReadFile(path.Join(boxDir, "box.yaml")); err != nil {
 		return nil, errors.Errorf("unable to read box.yaml: %s", err)
 	} else if err = yaml.Unmarshal(content, &box); err != nil {
