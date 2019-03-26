@@ -6,33 +6,6 @@ import (
 
 // Thanks to https://mholt.github.io/json-to-go/
 
-/*
-
-{
-    "add_provider": true,
-    "costcenter": "1a0f8ecb-f86a-46d1-88a1-45b11afecece",
-    "created": "2018-01-26 19:50:49.131726",
-    "deleted": null,
-    "deploy_instance": false,
-    "email": "gerrit.renker@centurylink.com",
-    "email_validated_at": "2018-01-26 19:50:49.084902",
-    "favorites": [],
-    "group_dns": [],
-    "icon": null,
-    "id": "gerritrenker",
-    "last_login": "2018-04-24 16:34:05.075448",
-    "last_name": "Renker",
-    "name": "Gerrit",
-    "organization": "centurylink",
-    "saml_id": "00151564",
-    "schema": "http://elasticbox.net/schemas/workspaces/personal",
-    "support_user_created": false,
-    "take_tour": true,
-    "type": "personal",
-    "updated": "2018-04-24 16:34:05.075782",
-    "uri": "/services/workspaces/gerritrenker"
-}
-*/
 type WorkSpace struct {
 	// Workspace unique identifier.
 	ID string `json:"id"`
@@ -51,7 +24,7 @@ type WorkSpace struct {
 	Updated   Timestamp `json:"updated"`
 	LastLogin Timestamp `json:"last_login"`
 
-	Deleted interface{} `json:"deleted"`
+	Deleted *Timestamp `json:"deleted"`
 
 	// Shows true when there are deployed instances in the personal workspace.
 	DeployInstance bool `json:"deploy_instance"`
