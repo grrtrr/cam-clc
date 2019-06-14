@@ -16,7 +16,7 @@ type Claims struct {
 	/*
 	 * 1) Fields common to both types of token:
 	 */
-	// Token Type: one of "user"  or  "service"
+	// Token Type: one of "user" or "service"
 	Type string `json:"type"`
 
 	// Unix expiration time/date

@@ -51,6 +51,7 @@ var (
 	// boxImport imports a Box Directory containing box files as a new box.
 	boxImportFlags struct {
 		AsDraft bool   // Whether to bypass the normal import process
+		Raw     bool   // Whether to use 'raw' import mode
 		Owner   string // Override the box owner
 	}
 	boxImport = &cobra.Command{
@@ -59,11 +60,30 @@ var (
 		Short:   "Import box from directory",
 		PreRunE: checkArgs(1, "Need a box directory"),
 		Run: func(cmd *cobra.Command, args []string) {
-			res, err := importBox(args[0], boxImportFlags.Owner, boxImportFlags.AsDraft)
+			var fileVariables []clccam.BasicVariable
+
+			res, err := importBox(args[0], boxImportFlags.Owner, boxImportFlags.AsDraft, boxImportFlags.Raw)
 			if err != nil {
 				die("%s", err)
-			} else if cmd.Flags().Lookup("json").Value.String() != "true" {
+			} else if cmd.Flags().Lookup("json").Value.String() == "true" {
+				return
+			}
+			if res.URI != nil {
 				fmt.Printf("Updloaded box %s to %v\n", res.ID, res.URI)
+			} else {
+				fmt.Printf("Updloaded box %s\n", res.ID)
+			}
+
+			for _, v := range res.Variables {
+				if v.Type == "File" {
+					fileVariables = append(fileVariables, v.BasicVariable)
+				}
+			}
+			if len(fileVariables) > 0 {
+				fmt.Println("Variables:")
+				for _, v := range fileVariables {
+					fmt.Printf("%60s  %s\n", v.Name, v.Value)
+				}
 			}
 		},
 	}
@@ -228,7 +248,8 @@ func listBoxes(boxes []clccam.Box) {
 }
 
 func init() {
-	boxImport.Flags().BoolVar(&boxImportFlags.AsDraft, "as-draft", true, "Upload box as draft")
+	boxImport.Flags().BoolVar(&boxImportFlags.AsDraft, "as-draft", true, "Upload box as draft (non-raw mode only)")
+	boxImport.Flags().BoolVar(&boxImportFlags.Raw, "raw", false, "Use raw import mode")
 	boxImport.Flags().StringVarP(&boxImportFlags.Owner, "owner", "o", "", "If set, overrides the box owner")
 
 	cmdBoxes.AddCommand(boxList, boxStack, boxVersions, boxDiff, boxBindings, boxImport, boxDelete)
@@ -236,12 +257,15 @@ func init() {
 }
 
 // importBox processes a box directory @boxDir and tries to import this as a box.
-// @owner:   override box owner
-// @asDraft: submit box as draft
-func importBox(boxDir, owner string, asDraft bool) (*clccam.Box, error) {
+// @owner:     override box owner
+// @asDraft:   submit box as draft
+// @rawImport: use raw import mode
+func importBox(boxDir, owner string, asDraft, rawImport bool) (*clccam.Box, error) {
 	var (
 		box        clccam.Box
-		existingId string // controls upload: create new or replace
+		current    *clccam.Box        // Existing variant of this box
+		existingId string             // controls upload: create new or replace
+		uploaderFn = client.UploadBox // determines standard or raw (appliance box) import
 	)
 
 	if fi, err := os.Stat(boxDir); err != nil {
@@ -265,38 +289,67 @@ func importBox(boxDir, owner string, asDraft bool) (*clccam.Box, error) {
 		return nil, errors.Errorf("box without ID can not be uploaded as draft")
 	}
 
+	if rawImport {
+		box.Visibility = clccam.Visibility_Public
+		uploaderFn = client.UploadApplianceBox
+	}
+
 	// See if it replaces an existing box of the same ID.
 	if !uuid.Equal(uuid.Nil, box.ID) {
-		if current, err := client.GetBox(box.ID.String()); err != nil {
+		if existing, err := client.GetBox(box.ID.String()); err != nil {
 			/* Ignore error here. Call is only used to see if Box already exists. */
 		} else {
-			existingId = box.ID.String()
-
-			// Copy pre-existing configuration.
-			box.Owner = current.Owner
-
-			// Do not copy members, sometimes they contain invalid entries.
-			// box.Members = current.Members
-			if box.Organization == "" {
-				box.Organization = current.Organization
-			}
-
-			if !asDraft && box.BoxVersion == nil {
-				if current.BoxVersion == nil {
-					box.BoxVersion = &clccam.BoxVersion{
-						Box: box.ID,
-					}
-				} else {
-					box.BoxVersion = current.BoxVersion
-				}
-				box.BoxVersion.Description = "Version created using a kind of ebcli"
-			}
+			current = &existing
 		}
 	}
 
-	// Override owner if present
+	if current == nil {
+		if box.Organization == "" {
+			box.Organization = "elasticbox"
+		}
+	} else { // Updating existing box
+		existingId = box.ID.String()
+
+		// Copy pre-existing configuration.
+		owner = current.Owner
+
+		// Do not copy members, sometimes they contain invalid entries.
+		// box.Members = current.Members
+
+		if box.Organization == "" {
+			box.Organization = current.Organization
+		}
+
+		if rawImport && len(box.Categories) == 0 {
+			box.Categories = current.Categories
+		}
+
+		if !asDraft || box.BoxVersion != nil {
+			if current.BoxVersion == nil {
+				box.BoxVersion = &clccam.BoxVersion{
+					Box: box.ID,
+				}
+			} else {
+				box.BoxVersion = current.BoxVersion
+			}
+			box.BoxVersion.Description = "Version created using a kind of ebcli"
+		}
+	}
+
+	// Always make sure that there is an empty list, not a nil value
+	if len(box.Members) == 0 {
+		box.Members = []clccam.WorkSpaceMember{}
+	}
+
+	// Override owner if present, fall back to owner of authorization token if no owner present.
 	if owner != "" {
 		box.Owner = owner
+	} else if box.Owner == "" {
+		user, err := client.GetTokenSubject()
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to determine token owner")
+		}
+		box.Owner = user
 	}
 
 	// Schema: default to Script Box if not set.
@@ -382,11 +435,11 @@ func importBox(boxDir, owner string, asDraft bool) (*clccam.Box, error) {
 	if box.BoxVersion != nil {
 		fmt.Println("WARNING: box version handling is not fully functional yet")
 		if !uuid.Equal(box.BoxVersion.Box, box.ID) {
-			return client.UploadBox(&box, box.BoxVersion.Box.String())
+			return uploaderFn(&box, box.BoxVersion.Box.String())
 		}
 	} else {
 		box.Created = clccam.Timestamp{Time: time.Now().UTC()}
 	}
 
-	return client.UploadBox(&box, existingId)
+	return uploaderFn(&box, existingId)
 }

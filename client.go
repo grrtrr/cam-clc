@@ -31,6 +31,9 @@ type Client struct {
 	// Cancellation context (used by @cancel). Can be overridden via WithContext()
 	ctx context.Context
 
+	// token makes the authentication token accessible to the client
+	token Token
+
 	// Print request / response to stderr.
 	requestDebug bool
 
@@ -71,6 +74,17 @@ func (c *Client) WithContext(ctx context.Context) *Client {
 // WithJsonResponse enables printing the JSON response to stdout.
 func (c *Client) WithJsonResponse() *Client {
 	return c.With(JsonResponse(true))
+}
+
+// GetTokenSubject returns the subject of the client's token if set.
+func (c *Client) GetTokenSubject() (user string, err error) {
+	if c.token == "" {
+		return "", errors.Errorf("token not set")
+	} else if c, err := c.token.Claims(); err != nil {
+		return "", errors.Wrapf(err, "failed to parse token")
+	} else {
+		return c.Subject, nil
+	}
 }
 
 // Get performs a GET /path, with output into @resModel

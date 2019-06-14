@@ -146,12 +146,9 @@ type Box struct {
 	Schema URI `json:"schema"` // e.g. "http://elasticbox.net/schemas/boxes/script"
 
 	// List of Box members.
-	Members []struct {
-		Role      string `json:"role"`      // e.g. "collaborator"
-		Workspace string `json:"workspace"` // e.g. "cf"
-	} `json:"members"`
+	Members []WorkSpaceMember `json:"members"`
 
-	// Organization to which the box belongs.
+	// Organization to which the box belongs: one of 'public' or 'elasticbox'
 	Organization string `json:"organization"` // e.g. "elasticbox"
 
 	// Box owner.
@@ -189,6 +186,12 @@ type Box struct {
 
 	// More html ...
 	ActionButton *ActionButton `json:"action_button,omitempty"`
+}
+
+// Members of a workspace
+type WorkSpaceMember struct {
+	Role      string `json:"role"`      // e.g. "collaborator"
+	Workspace string `json:"workspace"` // e.g. "cf"
 }
 
 // Miscellaneous box sub-structs
@@ -288,6 +291,24 @@ func (c *Client) UploadBox(box *Box, boxId string) (*Box, error) {
 			return nil, err
 		}
 	} else if err := c.getResponse("/services/boxes/", "POST", box, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// UploadApplianceBox performs create/update similar to UploadBox.
+func (c *Client) UploadApplianceBox(box *Box, boxId string) (*Box, error) {
+	var res Box
+
+	if box == nil {
+		return nil, errors.Errorf("attempt to upload nil box")
+	} else if uuid.Equal(uuid.Nil, box.ID) {
+		return nil, errors.Errorf("attempt to upload Appliance Box without ID")
+	} else if boxUuid := box.ID.String(); boxId != "" {
+		if err := c.getResponse("/services/appliance/boxes/"+boxUuid, "PUT", box, &res); err != nil {
+			return nil, err
+		}
+	} else if err := c.getResponse("/services/appliance/boxes/"+boxUuid, "POST", box, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil

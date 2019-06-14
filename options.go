@@ -81,6 +81,13 @@ func Context(ctx context.Context) ClientOption {
 	}
 }
 
+// ClientToken adds @t to the client
+func ClientToken(t Token) ClientOption {
+	return func(r *Client) {
+		r.token = t
+	}
+}
+
 // Debug enables printing request/response to stderr.
 func Debug(enabled bool) ClientOption {
 	return func(r *Client) {

@@ -35,9 +35,11 @@ func (t Token) String() string {
 
 // NewClient returns a CAM client that uses @t as authorization/bearer token.
 func (t Token) NewClient(options ...ClientOption) *Client {
-	return NewClient(RequestOptions(Headers(map[string]string{
-		"Authorization": "Bearer " + string(t),
-	}))).With(options...)
+	return NewClient(ClientToken(t),
+		RequestOptions(Headers(map[string]string{
+			"Authorization": "Bearer " + string(t),
+		})),
+	).With(options...)
 }
 
 // Decode attempts to parse @t, returning an error if it fails to parse.
